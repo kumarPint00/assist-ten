@@ -4,8 +4,9 @@ import React from "react";
 
 const AdminProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const userEmail = localStorage.getItem("loggedInUser");
+  const authToken = localStorage.getItem("authToken");
 
-  if (!userEmail) {
+  if (!userEmail || !authToken) {
     return <Navigate to="/login" replace />;
   }
 

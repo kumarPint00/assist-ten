@@ -91,6 +91,7 @@ function App() {
 
         <Route path="/logout" element={<Logout />} />
         <Route path="/candidate-assessment/:assessmentId" element={<CandidateAssessmentContainer />} />
+        <Route path="/candidate-quiz" element={<QuizContainer />} />
 
       </Routes>
     </BrowserRouter>

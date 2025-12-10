@@ -16,8 +16,18 @@ import "./QuizContainer.scss";
 import { quizService } from "../../API/services";
 import type { MCQQuestion, QuestionSet } from "../../API/services";
 import Loader from "../../components/Loader";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ErrorMessage from "../../components/ErrorMessage/ErrorMessage";
+
+interface LocationState {
+  assessmentId?: string;
+  assessment?: {
+    required_skills?: Record<string, string>;
+    duration_minutes?: number;
+    title?: string;
+  };
+  fromCandidateLink?: boolean;
+}
 
 const QuizContainer = () => {
   const [showModal, setShowModal] = useState(true);
@@ -54,19 +64,68 @@ const QuizContainer = () => {
   const [toastMessage, setToastMessage] = useState("");
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as LocationState | null;
+  
+  // Try to get assessment data from location state first, then localStorage
+  const getAssessmentData = () => {
+    if (locationState?.fromCandidateLink && locationState?.assessment) {
+      return { assessment: locationState.assessment, fromCandidateLink: true };
+    }
+    // Fallback to localStorage
+    const stored = localStorage.getItem("currentAssessment");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return { assessment: parsed, fromCandidateLink: true };
+      } catch {
+        return { assessment: null, fromCandidateLink: false };
+      }
+    }
+    return { assessment: null, fromCandidateLink: false };
+  };
+  
+  const { assessment: assessmentData, fromCandidateLink: isFromCandidateLink } = getAssessmentData();
 
   const getMCQsBasedOnProfile = async () => {
-    const userProfile = localStorage.getItem("userProfile");
-    const { topic, level, subtopics } = userProfile
-      ? JSON.parse(userProfile)
-      : {};
     try {
       setLoading(true);
       setError(null);
-      const res = await quizService.generateMCQs(topic, level, subtopics || []);
+      
+      let topic = "";
+      let level = "intermediate";
+      let subtopics: string[] = [];
+      
+      console.log("Assessment data:", assessmentData);
+      console.log("Is from candidate link:", isFromCandidateLink);
+      
+      if (isFromCandidateLink && assessmentData?.required_skills) {
+        const skills = Object.keys(assessmentData.required_skills);
+        console.log("Skills from assessment:", skills);
+        topic = skills[0] || "General";
+        subtopics = skills.slice(1);
+        const skillLevel = Object.values(assessmentData.required_skills)[0] as string;
+        level = skillLevel || "intermediate";
+      } else {
+        const userProfile = localStorage.getItem("userProfile");
+        const profileData = userProfile ? JSON.parse(userProfile) : {};
+        topic = profileData.topic || "";
+        level = profileData.level || "intermediate";
+        subtopics = profileData.subtopics || [];
+      }
+      
+      console.log("Topic:", topic, "Level:", level, "Subtopics:", subtopics);
+      
+      if (!topic) {
+        setError("No topic specified for the quiz. Please set up your profile or use a valid assessment link.");
+        setLoading(false);
+        return;
+      }
+      
+      const res = await quizService.generateMCQs(topic, level, subtopics);
       setMcqQuestions(res);
-      const question = res.questions[current];
-      setQuestion(question);
+      const questionData = res.questions[current];
+      setQuestion(questionData);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching MCQs:", error);

@@ -128,7 +128,16 @@ const CandidateAssessmentContainer: React.FC = () => {
   };
 
   const handleStartAssessment = () => {
-    navigate(`/app/quiz`, {
+    // Store assessment data in localStorage for the quiz page
+    if (assessment) {
+      localStorage.setItem("currentAssessment", JSON.stringify({
+        assessmentId: assessmentId,
+        required_skills: assessment.required_skills,
+        duration_minutes: assessment.duration_minutes,
+        title: assessment.title,
+      }));
+    }
+    navigate(`/candidate-quiz`, {
       state: {
         assessmentId: assessmentId,
         assessment: assessment,

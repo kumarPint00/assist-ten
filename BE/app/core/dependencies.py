@@ -120,29 +120,36 @@ async def verify_refresh_token(
     return result.scalar_one_or_none()
 
 
+optional_security = HTTPBearer(auto_error=False)
+
+
 class OptionalAuth:
     """Optional authentication dependency."""
     
-    def __init__(self):
-        self.security = HTTPBearer(auto_error=False)
-    
     async def __call__(
         self,
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
         db: AsyncSession = Depends(get_db)
     ) -> Optional[User]:
         """Get current user if authenticated, None otherwise."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         if credentials is None:
+            logger.info("OptionalAuth: No credentials provided")
             return None
         
         try:
             token = credentials.credentials
+            logger.info(f"OptionalAuth: Token received (first 20 chars): {token[:20] if token else 'None'}...")
             payload = decode_token(token)
             
             if payload is None:
+                logger.info("OptionalAuth: Token decode returned None")
                 return None
             
             user_id = payload.get("sub")
+            logger.info(f"OptionalAuth: user_id from token: {user_id}")
             if user_id is None:
                 return None
             
@@ -152,9 +159,13 @@ class OptionalAuth:
             user = result.scalar_one_or_none()
             
             if user and user.is_active:
+                logger.info(f"OptionalAuth: Found active user: {user.email}")
                 return user
+            else:
+                logger.info(f"OptionalAuth: User not found or inactive")
             
-        except Exception:
+        except Exception as e:
+            logger.error(f"OptionalAuth: Exception: {e}")
             pass
         
         return None
