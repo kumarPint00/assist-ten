@@ -1,10 +1,8 @@
 "use client";
 import { Button, Typography, Box } from "@mui/material";
-import { useNavigate } from "../../hooks/navigation";
+import { useNavigate } from "../../../FE/src/hooks/navigation";
 import "./HomePageContainer.scss";
 
-// NOTE: HomePageContainer is deprecated in favor of `LandingPage` located at `src/containers/LandingPage`.
-// It is kept here for reference and possible reuse in later phases.
 const LandingPage = () => {
   const navigate = useNavigate();
 
