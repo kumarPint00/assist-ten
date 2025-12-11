@@ -18,7 +18,7 @@ Production-ready FastAPI backend with SQLAlchemy 2.x (async), Alembic, PostgreSQ
 ## 📋 Features
 
 - ✅ Email-based OTP authentication
-- ✅ **Azure AD SSO authentication** (Microsoft 365 / Nagarro emails)
+- ✅ **Azure AD SSO authentication** (Microsoft 365 / Assist-ten emails)
 - ✅ JWT access + refresh token system
 - ✅ Async database operations (SQLAlchemy 2.x)
 - ✅ S3-compatible document storage
@@ -133,6 +133,11 @@ Interactive API documentation available at:
 - `POST /api/v1/test-sessions/{session_id}/submit` - Submit answer
 - `GET /api/v1/test-sessions/{session_id}/results` - Get results
 
+#### Assessment Invitations (Token-based access)
+- `POST /api/v1/assessments/{assessment_id}/invite` - Admin-only: Generate single-use assessment tokens and send email invites. Request body: `{"emails": ["candidate@example.com"], "expires_in_hours": 24}`
+- `GET /api/v1/assessments/access/{token}` - Validate token and return assessment details with candidate email prefilled (non-editable in UI).
+- `POST /api/v1/assessments/{assessment_id}/start-session?token={token}` - Start test session for candidate using token; creates `AssessmentApplication` and `TestSession` and returns questions.
+
 ## 🗄️ Database Migrations
 
 Create new migration:
@@ -232,7 +237,7 @@ pytest --cov=app --cov-report=html
 
 ### Azure AD SSO Configuration
 
-For production with Azure AD SSO (Nagarro emails):
+For production with Azure AD SSO (Assist-ten emails):
 
 1. **Register Azure AD Application**
    - See `AZURE_AD_SSO_SETUP.md` for detailed steps

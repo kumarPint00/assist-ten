@@ -1,13 +1,21 @@
+'use client';
+
 import { Box, Button, Typography } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../../hooks/navigation";
+import { useEffect, useState } from "react";
 import "./Navbar.scss";
 import { isAdmin } from "../../../utils/adminUsers";
+import { Logo } from '../../../components/ui';
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const [token, setToken] = useState<string | null>(null);
+  const [loggedUser, setLoggedUser] = useState<string | null>(null);
 
-  const token = localStorage.getItem("authToken");
-  const loggedUser = localStorage.getItem("loggedInUser");
+  useEffect(() => {
+    setToken(localStorage.getItem("authToken"));
+    setLoggedUser(localStorage.getItem("loggedInUser"));
+  }, []);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -18,16 +26,13 @@ const Navbar = () => {
   return (
     <Box className="navbar">
       <Box className="navbar-left">
-        <Box className="navbar-logo" />
-        <Typography variant="h6" className="navbar-title">
-          Learning Platform
-        </Typography>
+        <Logo />
       </Box>
 
       <Box className="navbar-links">
-        <span onClick={() => scrollToSection("hero")}>Home</span>
-        <span onClick={() => scrollToSection("community")}>Community</span>
+        <span onClick={() => scrollToSection("hero")}>Product</span>
         <span onClick={() => scrollToSection("features")}>Features</span>
+        <span onClick={() => scrollToSection("pricing")}>Pricing</span>
       </Box>
 
       <Box className="navbar-actions">
@@ -50,7 +55,16 @@ const Navbar = () => {
           className="navbar-btn"
           onClick={() => navigate(token ? "/app/profile-setup" : "/login")}
         >
-          {token ? "Explore App" : "Login"}
+          {token ? "Open App" : "Login"}
+        </Button>
+
+        <Button
+          variant="outlined"
+          className="navbar-secondary"
+          onClick={() => navigate("/signup")}
+          style={{ marginLeft: 8 }}
+        >
+          Start free trial
         </Button>
       </Box>
     </Box>

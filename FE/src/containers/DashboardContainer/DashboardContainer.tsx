@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import { Box, Typography, Button, Snackbar, Alert, Grid } from "@mui/material";
 import "./DashboardContainer.scss";
@@ -6,7 +7,7 @@ import type { RecommendedCourse as ServiceRecommendedCourse } from "../../API/se
 import { getBadge, isValidUrl } from "./helper";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../hooks/navigation";
 
 const techImages = [
   "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80",
@@ -71,7 +72,7 @@ const DashboardContainer = () => {
               Great Job on Your Last Quiz!
             </Typography>
             <Typography className="dashboard-subtitle">
-              Here's a summary of your progress and some recommended courses to
+              Here&apos;s a summary of your progress and some recommended courses to
               keep the streak going.
             </Typography>
           </Box>

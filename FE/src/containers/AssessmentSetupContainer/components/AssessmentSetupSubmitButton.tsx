@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from "react";
 import { FiLoader, FiAlertCircle } from "react-icons/fi";
 import "./AssessmentSetupSubmitButton.scss";

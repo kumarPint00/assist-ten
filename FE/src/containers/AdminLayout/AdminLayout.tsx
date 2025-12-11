@@ -1,9 +1,12 @@
 import AdminSidebar from "./components/AdminSidebar";
 import AdminNavbar from "./components/AdminNavbar";
-import { Outlet } from "react-router-dom";
 import "./AdminLayout.scss";
 
-const AdminLayout = () => {
+interface AdminLayoutProps {
+  children?: React.ReactNode;
+}
+
+const AdminLayout = ({ children }: AdminLayoutProps) => {
   return (
     <div className="admin-layout">
 
@@ -18,7 +21,7 @@ const AdminLayout = () => {
 
         {/* ONLY THIS SCROLLS */}
         <div className="admin-page">
-          <Outlet />
+          {children}
         </div>
       </div>
 

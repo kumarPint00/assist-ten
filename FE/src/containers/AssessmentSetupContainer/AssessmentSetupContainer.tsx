@@ -1,5 +1,7 @@
+"use client";
+"use client";
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "../../hooks/navigation";
 import "./AssessmentSetupContainer.scss";
 
 import FileUpload from "./components/FileUpload";

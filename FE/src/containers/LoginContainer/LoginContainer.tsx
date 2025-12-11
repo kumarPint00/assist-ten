@@ -1,6 +1,7 @@
+'use client';
 import React, { useEffect, useState } from "react";
 import { Box, TextField, Button, Typography } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../hooks/navigation";
 import "./LoginContainer.scss";
 import { apiCall } from "../../API";
 import { allowedUsers, HTTP_POST, LOGIN } from "../../API/constants";
@@ -96,7 +97,7 @@ const LoginContainer = () => {
         </Button>
 
         <Typography className="switch">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <span onClick={() => navigate("/signup")}>Sign Up</span>
         </Typography>
       </Box>

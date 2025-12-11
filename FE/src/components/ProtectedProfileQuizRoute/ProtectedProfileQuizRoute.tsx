@@ -1,5 +1,7 @@
-import React from "react";
-import { Navigate } from "react-router-dom";
+'use client';
+
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface ProtectedProfileQuizRouteProps {
   children: React.ReactNode;
@@ -8,10 +10,26 @@ interface ProtectedProfileQuizRouteProps {
 const ProtectedProfileQuizRoute = ({
   children,
 }: ProtectedProfileQuizRouteProps) => {
-  const profileCompleted = localStorage.getItem("profileCompleted") === "true";
+  const router = useRouter();
+  const [profileCompleted, setProfileCompleted] = React.useState<boolean>(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  useEffect(() => {
+    const completed = localStorage.getItem("profileCompleted") === "true";
+    setProfileCompleted(completed);
+    setIsLoading(false);
+    
+    if (!completed) {
+      router.replace("/app/profile-setup");
+    }
+  }, [router]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   if (!profileCompleted) {
-    return <Navigate to="/app/profile-setup" replace />;
+    return null;
   }
 
   return <>{children}</>;

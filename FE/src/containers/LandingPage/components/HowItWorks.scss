@@ -1,0 +1,44 @@
+.how-it-works {
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+.how-title {
+  color: #e6f0ff;
+  font-weight: 700;
+}
+
+.how-steps {
+  max-width: 1000px;
+  width: 100%;
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.how-step { 
+  flex: 1;
+  padding: 20px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.step-num {
+  font-weight: 700;
+  color: #95bfff;
+}
+
+.step-title { color: #dfeefe; font-weight: 700; }
+.step-desc { color: #b8cbe8; }
+
+@media screen and (max-width: 920px) {
+  .how-steps { 
+    flex-direction: column;
+  }
+}

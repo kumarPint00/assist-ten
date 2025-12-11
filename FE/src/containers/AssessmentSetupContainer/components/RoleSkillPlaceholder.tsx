@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useMemo } from "react";
 import { FiX, FiCheck, FiAlertCircle, FiChevronDown, FiChevronUp, FiStar } from "react-icons/fi";
 import "./RoleSkillPlaceholder.scss";
@@ -352,7 +353,7 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
       {/* Info Box */}
       {(extractedRole || extractedSkills?.length) && (
         <div className="extraction-info">
-          <p>💡 <strong>Tip:</strong> You can customize the auto-extracted suggestions or keep them as-is. Click "Use suggestion" or "Add all" to accept.</p>
+          <p>💡 <strong>Tip:</strong> You can customize the auto-extracted suggestions or keep them as-is. Click &quot;Use suggestion&quot; or &quot;Add all&quot; to accept.</p>
         </div>
       )}
     </div>

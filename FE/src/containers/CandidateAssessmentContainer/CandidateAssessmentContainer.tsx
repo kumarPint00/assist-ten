@@ -1,5 +1,6 @@
+"use client";
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "../../hooks/navigation";
 import {
   Box,
   Container,
@@ -137,13 +138,7 @@ const CandidateAssessmentContainer: React.FC = () => {
         title: assessment.title,
       }));
     }
-    navigate(`/candidate-quiz`, {
-      state: {
-        assessmentId: assessmentId,
-        assessment: assessment,
-        fromCandidateLink: true,
-      },
-    });
+    navigate(`/candidate-quiz`);
   };
 
   const handleProceedToEmail = () => {
@@ -253,7 +248,7 @@ const CandidateAssessmentContainer: React.FC = () => {
               {assessment?.title || "Skills Assessment"}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              You've been invited to complete this assessment
+              You&apos;ve been invited to complete this assessment
             </Typography>
           </Box>
 
@@ -415,15 +410,15 @@ const CandidateAssessmentContainer: React.FC = () => {
           {step === "ready" && (
             <Box className="candidate-assessment__ready">
               <Alert severity="success" sx={{ mb: 3 }}>
-                Email verified successfully! You're ready to start the assessment.
+                Email verified successfully! You&apos;re ready to start the assessment.
               </Alert>
 
               <Typography variant="h6" gutterBottom>
                 Ready to Begin?
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Click the button below to start your assessment. Once you begin, 
-                the timer will start and cannot be paused.
+                Click the button below to start your assessment. Once you begin,
+                the timer will start and can&apos;t be paused.
               </Typography>
 
               <Button

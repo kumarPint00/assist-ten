@@ -3,20 +3,18 @@ import TwitterIcon from "@mui/icons-material/Twitter";
 import InstagramIcon from "@mui/icons-material/Instagram";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import "./Footer.scss";
+import { Logo } from '../../../components/ui';
 
 const Footer = () => {
   return (
     <Box className="footer">
       <Box className="footer-content">
         <Box className="footer-brand">
-          <Box className="footer-logo" />
-          <Typography variant="h6" className="footer-title">
-            Learning Platform
-          </Typography>
+          <Logo />
         </Box>
 
         <Typography className="footer-description">
-          Your universe for gaming, community, and limitless play.
+          Secure interviewing and consistent hiring decisions for modern teams.
         </Typography>
 
         <Box className="footer-socials">
@@ -34,8 +32,8 @@ const Footer = () => {
 
       <Box className="footer-divider" />
 
-      <Typography className="footer-copy">
-        © {new Date().getFullYear()} Learning Platform. All rights reserved.
+        <Typography className="footer-copy">
+        © {new Date().getFullYear()} Assist-Ten. All rights reserved.
       </Typography>
     </Box>
   );

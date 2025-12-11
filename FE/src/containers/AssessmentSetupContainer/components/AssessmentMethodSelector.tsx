@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import { FiInfo, FiCheckCircle, FiLock } from "react-icons/fi";
 import "./AssessmentMethodSelector.scss";

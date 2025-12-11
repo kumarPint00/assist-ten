@@ -1,5 +1,6 @@
+"use client";
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../hooks/navigation";
 import { 
   FiPlus, FiSearch, FiFilter, FiEye, FiEdit2, FiTrash2, 
   FiAlertCircle, FiX, FiCheckCircle, FiClock, FiActivity, FiRefreshCw,

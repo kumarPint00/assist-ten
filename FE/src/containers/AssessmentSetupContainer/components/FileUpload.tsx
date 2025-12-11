@@ -349,7 +349,7 @@ const FileUpload: React.FC<Props> = ({ label, onFileSelect, onTextExtracted, isR
                 <FiUpload size={28} />
               </div>
               <h3 className="modal-title">Upload Document</h3>
-              <p className="modal-subtitle">Choose how you'd like to upload your file</p>
+              <p className="modal-subtitle">Choose how you&apos;d like to upload your file</p>
             </div>
 
             <div className="upload-options">

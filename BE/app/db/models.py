@@ -504,6 +504,32 @@ class UploadedDocument(Base, TimestampMixin):
         return f"<UploadedDocument(id={self.id}, file_id='{self.file_id}', doc_type='{self.document_category}')>"
 
 
+class AssessmentToken(Base, TimestampMixin):
+    """Assessment access token for candidate invitation links."""
+
+    __tablename__ = "assessment_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    assessment_id: Mapped[int] = mapped_column(Integer, ForeignKey("assessments.id"), nullable=False)
+    candidate_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Relationships
+    assessment: Mapped["Assessment"] = relationship("Assessment")
+    created_by_user: Mapped[Optional["User"]] = relationship("User")
+
+    __table_args__ = (
+        Index("ix_assessment_tokens_token", "token"),
+        Index("ix_assessment_tokens_email", "candidate_email"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssessmentToken(id={self.id}, token='{self.token[:10]}...', assessment_id={self.assessment_id}, candidate_email='{self.candidate_email}')>"
+
+
 class Skill(Base, TimestampMixin):
     """Master list of available skills for the platform."""
     

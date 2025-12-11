@@ -40,12 +40,12 @@ const FeaturedSection = () => {
 
       <Grid container spacing={3} className="featured-grid">
         {featuredGames.map((game) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={game.title}>
+          <Grid item xs={12} sm={6} md={4} lg={3} key={game.title}>
             <Card className="game-card">
               <div className="image-wrapper">
                 <CardMedia
                   component="img"
-                  image={game.image}
+                  image={typeof game.image === 'string' ? game.image : (game.image as any).src}
                   alt={game.title}
                 />
               </div>

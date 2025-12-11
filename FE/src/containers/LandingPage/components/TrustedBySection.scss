@@ -1,0 +1,34 @@
+.trusted-by {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 24px;
+  gap: 16px;
+}
+
+.trusted-title {
+  color: #cfe8ff;
+  font-weight: 600;
+}
+
+.logos {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.trusted-logo {
+  width: 120px;
+  opacity: 0.85;
+  filter: grayscale(60%);
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.trusted-logo:hover {
+  filter: none;
+  opacity: 1;
+}
+.trusted-logo { transition: filter 0.22s ease, opacity 0.22s ease, transform 0.22s ease; }
+.trusted-logo:hover { transform: translateY(-4px); }

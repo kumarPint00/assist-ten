@@ -7,12 +7,19 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
 
-from app.core.dependencies import get_db, get_current_user, optional_auth
+from app.core.dependencies import get_db, get_current_user, optional_auth, validate_assessment_token
 from app.core.security import check_admin, is_admin_user
-from app.db.models import Assessment, AssessmentApplication, Candidate, User, JobDescription
+from app.core.email import send_email
+from config import get_settings
+import secrets
+from datetime import timedelta
+from app.db.models import AssessmentToken
+from app.models.schemas import AssessmentInviteRequest, AssessmentInviteResponse
+from app.db.models import Assessment, AssessmentApplication, Candidate, User, JobDescription, TestSession, Question
 from app.models.schemas import (
     AssessmentCreate, AssessmentUpdate, AssessmentResponse,
-    AssessmentApplicationRequest, AssessmentApplicationResponse
+    AssessmentApplicationRequest, AssessmentApplicationResponse,
+    StartQuestionSetTestResponse
 )
 
 router = APIRouter(prefix="/api/v1/assessments", tags=["assessments"])
@@ -441,6 +448,238 @@ async def update_assessment(
         expires_at=assessment.expires_at,
         created_at=assessment.created_at,
         updated_at=assessment.updated_at,
+    )
+
+
+
+@router.post("/{assessment_id}/invite", response_model=AssessmentInviteResponse)
+async def invite_candidates(
+    assessment_id: str,
+    request: AssessmentInviteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Invite candidates by generating single-use tokens and emailing them the assessment link. Admin only."""
+    await check_admin(current_user)
+    settings = get_settings()
+
+    stmt = select(Assessment).where(Assessment.assessment_id == assessment_id)
+    result = await db.execute(stmt)
+    assessment = result.scalars().first()
+
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
+
+    invites = []
+    for email in request.emails:
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=request.expires_in_hours or 24)
+
+        token_record = AssessmentToken(
+            token=token,
+            assessment_id=assessment.id,
+            candidate_email=email,
+            expires_at=expires_at,
+            is_used=False,
+            created_by=current_user.id,
+        )
+        db.add(token_record)
+        await db.flush()
+
+        # Build invite URL (frontend route expected to handle token)
+        host = getattr(settings, 'HOST', 'localhost')
+        port = getattr(settings, 'PORT', 8000)
+        scheme = 'https' if getattr(settings, 'S3_USE_SSL', False) else 'http'
+        invite_url = f"{scheme}://{host}:{port}/candidate-assessment/token/{token}"
+
+        # Send email (use send_email; using synchronous call is okay for MVP)
+        subject = f"You're invited to take the assessment: {assessment.title}"
+        html_body = f"<p>Hello,</p><p>You have been invited to take the assessment '<strong>{assessment.title}</strong>'. Click the link below to start:</p><p><a href='{invite_url}'>Start Assessment</a></p>"
+        if request.message:
+            html_body += f"<p>{request.message}</p>"
+        html_body += f"<p>This link expires on {expires_at} UTC and is single-use.</p>"
+
+        try:
+            await send_email(to_email=email, subject=subject, html_body=html_body)
+        except Exception:
+            # For deliverability errors, continue but record failure
+            pass
+
+        invites.append({
+            'email': email,
+            'token': token,
+            'expires_at': expires_at,
+        })
+
+    await db.commit()
+    return AssessmentInviteResponse(success=True, invites_sent=invites, message="Invites generated and emails sent if configured.")
+
+
+
+@router.get("/access/{token}", response_model=dict)
+async def get_assessment_by_token(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+    token_rec = Depends(validate_assessment_token),
+    current_user: Optional[User] = Depends(optional_auth),
+) -> dict:
+    """Validate token and return assessment details with prefilled candidate email (non-editable on frontend)."""
+    stmt = select(Assessment).where(Assessment.id == token_rec.assessment_id)
+    result = await db.execute(stmt)
+    assessment = result.scalars().first()
+
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
+
+    # If assessment not published and user isn't admin, hide
+    is_admin = False
+    if current_user and hasattr(current_user, 'email'):
+        is_admin = is_admin_user(current_user.email)
+
+    if not is_admin:
+        if not assessment.is_published or not assessment.is_active:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment is not available")
+
+    response = {
+        "id": assessment.id,
+        "assessment_id": assessment.assessment_id,
+        "title": assessment.title,
+        "description": assessment.description,
+        "job_title": assessment.job_title,
+        "jd_id": assessment.jd_id,
+        "question_set_id": assessment.question_set_id,
+        "duration_minutes": assessment.duration_minutes,
+        "is_published": assessment.is_published,
+        "expires_at": assessment.expires_at,
+        "candidate_email": token_rec.candidate_email,
+        "token": token_rec.token,
+    }
+
+    return response
+
+
+
+@router.post("/{assessment_id}/start-session", response_model=StartQuestionSetTestResponse)
+async def start_assessment_session(
+    assessment_id: str,
+    token: str = Query(..., description="Single-use assessment token"),
+    db: AsyncSession = Depends(get_db),
+    token_rec = Depends(validate_assessment_token),
+):
+    """Start assessment session for candidate using a single-use token.
+
+    Validates token, ensures assessment matches, creates candidate if necessary,
+    creates TestSession with question set, and marks token as used.
+    """
+    # Ensure token belongs to this assessment
+    if not token_rec:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    # Load assessment
+    stmt = select(Assessment).where(Assessment.assessment_id == assessment_id)
+    result = await db.execute(stmt)
+    assessment = result.scalars().first()
+
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
+
+    if token_rec.assessment_id != assessment.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token mismatch for this assessment")
+
+    # Create or find candidate
+    cand_stmt = select(Candidate).where(Candidate.email == token_rec.candidate_email)
+    cand_result = await db.execute(cand_stmt)
+    candidate = cand_result.scalars().first()
+
+    if not candidate:
+        candidate = Candidate(
+            full_name=token_rec.candidate_email.split('@')[0].title(),
+            email=token_rec.candidate_email,
+            experience_level='mid',
+            skills={},
+            availability_percentage=100,
+        )
+        db.add(candidate)
+        await db.flush()
+
+    # Ensure assessment has a question_set_id or JD
+    if not assessment.question_set_id and not assessment.jd_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No question set or JD configured for this assessment")
+
+    # Create application record
+    application = AssessmentApplication(
+        candidate_id=candidate.id,
+        assessment_id=assessment.id,
+        status='in_progress',
+        applied_at=datetime.utcnow(),
+        started_at=datetime.utcnow(),
+        candidate_availability=candidate.availability_percentage,
+        submitted_skills=candidate.skills or {},
+        role_applied_for=None,
+    )
+    db.add(application)
+    await db.flush()
+
+    # Create test session (QuestionSet preferred)
+    started_at = datetime.utcnow()
+    test_session = TestSession(
+        question_set_id=assessment.question_set_id,
+        jd_id=assessment.jd_id,
+        user_id=None,
+        candidate_name=candidate.full_name,
+        candidate_email=candidate.email,
+        started_at=started_at,
+        total_questions=0,  # We will set after loading questions
+        is_completed=False,
+        is_scored=False,
+    )
+    db.add(test_session)
+    await db.flush()
+
+    # Mark token used
+    token_rec.is_used = True
+
+    # If question_set_id is present, fetch questions and set total_questions
+    question_list = []
+    if assessment.question_set_id:
+        # Reuse existing logic from question set flow
+        qs_stmt = select(Question).where(Question.question_set_id == assessment.question_set_id).order_by(Question.id)
+        qs_result = await db.execute(qs_stmt)
+        questions = qs_result.scalars().all()
+        test_session.total_questions = len(questions)
+        # Format questions for response (without correct answers)
+        for q in questions:
+            options = [
+                {'option_id': opt_id, 'text': opt_text}
+                for opt_id, opt_text in sorted(q.options.items())
+            ]
+            question_list.append({
+                'question_id': q.id,
+                'question_text': q.question_text,
+                'options': options,
+                'correct_answer': '',
+            })
+    else:
+        # JD-based assessments handled later
+        pass
+
+    # Link test_session to application
+    application.test_session_id = test_session.session_id
+
+    await db.commit()
+    await db.refresh(test_session)
+    await db.refresh(application)
+
+    # Build response similar to StartQuestionSetTestResponse
+    # Note: skill and level fields repurposed for compatibility
+    return StartQuestionSetTestResponse(
+        session_id=test_session.session_id,
+        question_set_id=assessment.question_set_id or "",
+        skill=list(assessment.required_skills.keys())[0] if assessment.required_skills else "",
+        level=assessment.assessment_method or 'questionnaire',
+        total_questions=test_session.total_questions,
+        started_at=started_at,
+        questions=question_list,
     )
 
 

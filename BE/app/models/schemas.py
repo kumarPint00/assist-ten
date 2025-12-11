@@ -253,6 +253,20 @@ class AssessmentCreate(BaseModel):
     candidate_info: Optional[CandidateInfoSchema] = None
 
 
+class AssessmentInviteRequest(BaseModel):
+    """Request schema to invite candidates to an assessment by email."""
+    emails: List[str]
+    expires_in_hours: Optional[int] = 24
+    message: Optional[str] = None
+
+
+class AssessmentInviteResponse(BaseModel):
+    """Response schema for invite endpoint."""
+    success: bool
+    invites_sent: List[dict] = []  # [{'email': str, 'token': str, 'expires_at': datetime}]
+    message: Optional[str] = None
+
+
 class AssessmentUpdate(BaseModel):
     """Request to update assessment."""
     title: Optional[str] = None

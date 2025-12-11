@@ -1,8 +1,11 @@
 import Sidebar from "../../components/Sidebar/Sidebar";
 import "./AppLandingContainer.scss";
-import { Outlet } from "react-router-dom";
 
-const AppLandingContainer = () => {
+interface AppLandingContainerProps {
+  children?: React.ReactNode;
+}
+
+const AppLandingContainer = ({ children }: AppLandingContainerProps) => {
   return (
     <div className="sidebar-layout">
       <div className="topics-sidebar">
@@ -10,7 +13,7 @@ const AppLandingContainer = () => {
       </div>
 
       <div className="main-content">
-        <Outlet />
+        {children}
       </div>
     </div>
   );

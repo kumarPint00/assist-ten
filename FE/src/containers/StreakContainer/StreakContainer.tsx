@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import "./StreakContainer.scss";
@@ -61,8 +62,8 @@ const StreakContainer: React.FC = () => {
             <Box className="progress-bar">
               <Box className="progress-fill" style={{ width: "71%" }} />
             </Box>
-            <Typography className="card-sub">
-              You're on a roll! Next reward unlocks at 7 days.
+              <Typography className="card-sub">
+              You&apos;re on a roll! Next reward unlocks at 7 days.
             </Typography>
           </Box>
 

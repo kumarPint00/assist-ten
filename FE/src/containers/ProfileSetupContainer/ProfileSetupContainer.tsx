@@ -1,4 +1,5 @@
-import { useState } from "react";
+"use client";
+import React, { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import {
@@ -9,7 +10,7 @@ import {
   Autocomplete,
   Chip,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../hooks/navigation";
 import "./ProfileSetupContainer.scss";
 import { convertProficiency } from "./helper";
 import { quizService } from "../../API/services";
@@ -108,18 +109,14 @@ const ProfileSetupContainer = () => {
             options={skillOptions}
             value={formik.values.skills}
             onChange={(_event, value) => handleChange("skills", value)}
-            renderValue={(value: readonly string[]) =>
+            renderTags={(value: readonly string[], getTagProps) =>
               value.map((option: string, index: number) => (
-                <Chip
-                  key={index}
-                  label={option}
-                  onDelete={() =>
-                    formik.setFieldValue(
-                      "skills",
-                      value.filter((_, i) => i !== index)
-                    )
-                  }
-                />
+                <React.Fragment key={option}>
+                  <Chip
+                    label={option}
+                    {...getTagProps({ index })}
+                  />
+                </React.Fragment>
               ))
             }
             renderInput={(params) => (
@@ -140,20 +137,16 @@ const ProfileSetupContainer = () => {
             options={subSkillsOptions}
             value={formik.values.subSkills}
             onChange={(_event, value) => handleChange("subSkills", value)}
-            renderValue={(value: readonly string[]) =>
-              value.map((option: string, index: number) => (
-                <Chip
-                  key={index}
-                  label={option}
-                  onDelete={() =>
-                    formik.setFieldValue(
-                      "subSkills",
-                      value.filter((_, i) => i !== index)
-                    )
-                  }
-                />
-              ))
-            }
+              renderTags={(value: readonly string[], getTagProps) =>
+                value.map((option: string, index: number) => (
+                  <React.Fragment key={option}>
+                    <Chip
+                      label={option}
+                      {...getTagProps({ index })}
+                    />
+                  </React.Fragment>
+                ))
+              }
             renderInput={(params) => (
               <TextField
                 {...params}

@@ -1,5 +1,6 @@
+"use client";
 import { Button, Typography, Box } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../hooks/navigation";
 import "./HomePageContainer.scss";
 
 const LandingPage = () => {

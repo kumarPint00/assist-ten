@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import NavLink from "../../../components/NavLink/NavLink";
 import "./AdminSidebar.scss";
 
 const AdminSidebar = () => {

@@ -197,7 +197,7 @@ async def azure_sso_callback(
             )
         
         email_domain = email.split('@')[1].lower()
-        allowed_domains = ['nagarro.com']
+        allowed_domains = ['assist-ten.com']
         
         if email_domain not in allowed_domains:
             raise HTTPException(

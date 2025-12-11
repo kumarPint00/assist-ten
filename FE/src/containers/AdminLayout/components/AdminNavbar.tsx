@@ -1,8 +1,9 @@
+"use client";
 import { useState } from "react";
 import { FaBell, FaUserCircle } from "react-icons/fa";
 import "./AdminNavbar.scss";
 import { Menu, MenuItem, Dialog, DialogTitle, DialogActions, Button } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../../hooks/navigation";
 
 const AdminNavbar = () => {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);

@@ -8,7 +8,7 @@ const testimonials = [
     name: "Puneet Banga",
     image: "/assets/avatars/user1.jpg",
     rating: 5,
-    text: "The community here is incredible. I've made more friends on this platform in a month than years on others. Truly game-changing.",
+    text: "The community here is incredible. I&apos;ve made more friends on this platform in a month than years on others. Truly game-changing.",
   },
   {
     name: "Arjun Singha",
@@ -33,7 +33,7 @@ const CommunitySection = () => {
 
       <Grid container spacing={4} className="testimonial-grid">
         {testimonials.map((t) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={t.name}>
+          <Grid item xs={12} sm={6} md={4} key={t.name}>
             <Box className="testimonial-card">
               <Box className="testimonial-header">
                 <Avatar src={t.image} className="testimonial-avatar" />

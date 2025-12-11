@@ -1,6 +1,7 @@
+"use client";
 import React, { useState } from "react";
 import { Box, TextField, Button, Typography } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../../hooks/navigation";
 import "./SignUpContainer.scss";
 
 const SignUpContainer = () => {

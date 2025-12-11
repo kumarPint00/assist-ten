@@ -1,0 +1,7 @@
+.faq-section { padding: 48px 24px; display:flex; flex-direction:column; gap:12px; align-items:center; }
+.faq-title { color: #e6f0ff; font-weight:700; }
+.faq-grid { max-width: 1000px; width: 100%; display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.faq-card { padding: 16px; border-radius: 10px; background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); }
+.faq-q { font-weight:700; color:#dfeefe; }
+.faq-a { color:#b8cbe8; margin-top:6px; }
+@media screen and (max-width: 920px) { .faq-grid { grid-template-columns: 1fr; } }

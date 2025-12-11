@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
 from app.db.models import User, RefreshToken
+from app.db.models import AssessmentToken
 from app.core.security import decode_token
 from datetime import datetime
 
@@ -209,3 +210,28 @@ async def optional_user(
         pass
     
     return None
+
+
+async def validate_assessment_token(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate assessment access token for candidate links."""
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+    result = await db.execute(select(AssessmentToken).where(AssessmentToken.token == token))
+    token_rec = result.scalars().first()
+
+    if not token_rec:
+        # Token not found
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Link expired or invalid. Contact Admin to resend.")
+
+    if token_rec.is_used:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Link has already been used. Contact Admin to resend.")
+
+    # Check expiry
+    if token_rec.expires_at and token_rec.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Link expired or invalid. Contact Admin to resend.")
+
+    return token_rec

@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import {
   Drawer,
@@ -19,7 +20,7 @@ import {
   Dashboard,
   Logout as LogoutIcon,
 } from "@mui/icons-material";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "../../hooks/navigation";
 import "./Sidebar.scss";
 
 const Sidebar = () => {

@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import {
   Box,
@@ -16,7 +17,7 @@ import "./QuizContainer.scss";
 import { quizService } from "../../API/services";
 import type { MCQQuestion, QuestionSet } from "../../API/services";
 import Loader from "../../components/Loader";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "../../hooks/navigation";
 import ErrorMessage from "../../components/ErrorMessage/ErrorMessage";
 
 interface LocationState {
