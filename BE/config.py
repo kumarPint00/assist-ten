@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Database
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
-    DB_NAME: str = "ai_learning_db"
+    DB_NAME: str = "assist_ten_db"
     DB_USER: str = "postgres"
     DB_PASSWORD: str = "postgres"
     DATABASE_URL: Optional[str] = None

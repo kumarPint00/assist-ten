@@ -21,7 +21,7 @@ jobs:
         cat > .env << EOF
         ENVIRONMENT=test
         DEBUG=True
-        DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/ai_learning_db
+        DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/assist_ten_db
         REDIS_URL=redis://redis:6379/0
         JWT_SECRET_KEY=test-secret-key
         GROQ_API_KEY=test-key

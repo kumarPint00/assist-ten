@@ -125,7 +125,7 @@ Add production values:
 ```env
 ENVIRONMENT=production
 DEBUG=False
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai_learning_db
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/assist_ten_db
 REDIS_URL=redis://localhost:6379/0
 JWT_SECRET_KEY=<generate-strong-secret>
 GROQ_API_KEY=<your-groq-api-key>
