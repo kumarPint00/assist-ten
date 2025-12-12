@@ -1,13 +1,14 @@
 'use client';
 import React, { useEffect, useState } from "react";
-import { Box, TextField, Button, Typography } from "@mui/material";
+import { Box, TextField, Typography } from "@mui/material";
+import { motion } from "framer-motion";
 import { useNavigate } from "../../hooks/navigation";
 import "./LoginContainer.scss";
 import { apiCall } from "../../API";
 import { allowedUsers, HTTP_POST, LOGIN } from "../../API/constants";
 import Loader from "../../components/Loader";
-import {isAdmin} from "../../utils/adminUsers"
-
+import { isAdmin } from "../../utils/adminUsers";
+import PrimaryButton from "../../components/ui/PrimaryButton";
 
 const LoginContainer = () => {
   const navigate = useNavigate();
@@ -70,37 +71,89 @@ const LoginContainer = () => {
 
   if (loading) return <Loader fullscreen message="Loading App..." />;
 
+  const containerVariants = {
+    hidden: { opacity: 0, y: 50 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: [0.25, 0.46, 0.45, 0.94] as const,
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }
+    }
+  };
+
   return (
     <Box className="login-page">
-      <Box className="login-card">
-        <Typography className="title">Welcome Back</Typography>
-        <Typography className="subtitle">
-          Sign in to continue your journey
-        </Typography>
+      <motion.div
+        className="login-card"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={itemVariants}>
+          <Typography className="title">Welcome Back</Typography>
+        </motion.div>
 
-        <TextField
-          label="Email"
-          name="email"
-          variant="outlined"
-          fullWidth
-          value={values.email}
-          onChange={handleChange}
-          className="input"
-        />
+        <motion.div variants={itemVariants}>
+          <Typography className="subtitle">
+            Sign in to continue your journey
+          </Typography>
+        </motion.div>
 
-        <Button
-          variant="contained"
-          className="primary-btn"
-          onClick={handleSubmit}
-        >
-          Sign In
-        </Button>
+        <motion.div variants={itemVariants}>
+          <TextField
+            label="Email"
+            name="email"
+            variant="outlined"
+            fullWidth
+            value={values.email}
+            onChange={handleChange}
+            className="input"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  borderColor: 'rgba(148, 163, 184, 0.2)',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#6366f1',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#6366f1',
+                },
+              },
+            }}
+          />
+        </motion.div>
 
-        <Typography className="switch">
-          Don&apos;t have an account?{" "}
-          <span onClick={() => navigate("/signup")}>Sign Up</span>
-        </Typography>
-      </Box>
+        <motion.div variants={itemVariants}>
+          <PrimaryButton
+            onClick={handleSubmit}
+            disabled={!values.email}
+            animated
+            fullWidth
+          >
+            Sign In
+          </PrimaryButton>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Typography className="switch">
+            Don&apos;t have an account?{" "}
+            <span onClick={() => navigate("/signup")}>Sign Up</span>
+          </Typography>
+        </motion.div>
+      </motion.div>
     </Box>
   );
 };

@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 import { Box, Typography } from "@mui/material";
 import { SectionLayout, InfoCard, SectionTitle } from '../../../components/ui';
 import { motion } from "framer-motion";

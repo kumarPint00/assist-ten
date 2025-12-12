@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Box, Typography, Button, Snackbar, Alert, Grid } from "@mui/material";
+import { Box, Typography, Snackbar, Alert, Grid } from "@mui/material";
+import { motion } from "framer-motion";
 import "./DashboardContainer.scss";
 import { coursesService } from "../../API/services";
 import type { RecommendedCourse as ServiceRecommendedCourse } from "../../API/services";
@@ -8,6 +9,7 @@ import { getBadge, isValidUrl } from "./helper";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import { useNavigate } from "../../hooks/navigation";
+import PrimaryButton from "../../components/ui/PrimaryButton";
 
 const techImages = [
   "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80",
@@ -66,7 +68,12 @@ const DashboardContainer = () => {
   return (
     <>
       <Box className="dashboard-container">
-        <Box className="dashboard-header">
+        <motion.div
+          className="dashboard-header"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
           <Box>
             <Typography variant="h4" className="dashboard-title">
               Great Job on Your Last Quiz!
@@ -76,23 +83,39 @@ const DashboardContainer = () => {
               keep the streak going.
             </Typography>
           </Box>
-          <Box className="streak-card" onClick={() => navigate("/app/streak")}>
+          <motion.div
+            className="streak-card"
+            onClick={() => navigate("/app/streak")}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
             <Box className="streak-icon">🔥</Box>
             <Box className="streak-info">
               <Typography className="streak-number">5</Typography>
               <Typography className="streak-label">Days Streak</Typography>
             </Box>
-          </Box>
-        </Box>
+          </motion.div>
+        </motion.div>
 
         {score && (
-          <Box className="section">
+          <motion.div
+            className="section"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+          >
             <Typography variant="h6" className="section-title">
               Quizzes Taken
             </Typography>
 
             <Box className="quiz-grid">
-              <Box className="quiz-card">
+              <motion.div
+                className="quiz-card"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+                whileHover={{ y: -6 }}
+              >
                 <Box className="quiz-card-header">
                   <Typography className="quiz-title">Agentic AI</Typography>
                   {scoreNum > 50 && (
@@ -112,20 +135,36 @@ const DashboardContainer = () => {
                   </Typography>
                   <Typography className="score-label">Score</Typography>
                 </Box>
-              </Box>
+              </motion.div>
             </Box>
-          </Box>
+          </motion.div>
         )}
 
-        <Box className="section">
+        <motion.div
+          className="section"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4, ease: "easeOut" }}
+        >
           <Typography variant="h6" className="section-title">
             Recommended Courses For You
           </Typography>
 
           <Box className="course-grid">
-            {recommendedCoursesData.map((course) => {
+            {recommendedCoursesData.map((course, index) => {
               return (
-                <Box key={course.name} className="course-card">
+                <motion.div
+                  key={course.name}
+                  className="course-card"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: 0.5 + index * 0.1,
+                    ease: "easeOut"
+                  }}
+                  whileHover={{ y: -6 }}
+                >
                   <Box
                     className="course-image"
                     style={{
@@ -159,9 +198,7 @@ const DashboardContainer = () => {
                     </Typography>
                   </Box>
 
-                  <Button
-                    variant="contained"
-                    className="start-btn"
+                  <PrimaryButton
                     onClick={() => {
                       if (!isValidUrl(course.url)) {
                         setToastMessage("Invalid course URL.");
@@ -171,14 +208,15 @@ const DashboardContainer = () => {
 
                       window.open(course.url, "_blank");
                     }}
+                    fullWidth
                   >
                     Start Course
-                  </Button>
-                </Box>
+                  </PrimaryButton>
+                </motion.div>
               );
             })}
           </Box>
-        </Box>
+        </motion.div>
       </Box>
       <Snackbar
         open={showToast}

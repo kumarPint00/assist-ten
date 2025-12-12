@@ -1,11 +1,10 @@
 import Navbar from "./components/Navbar";
-import HeroSection from "./components/HeroSection";
-import TrustedBySection from "./components/TrustedBySection";
-import ProblemSection from "./components/ProblemSection";
-import HowItWorks from "./components/HowItWorks";
-import FAQSection from "./components/FAQSection";
 import { lazyImport } from '../../components/ui';
 
+const HeroSection = lazyImport(() => import("./components/HeroSection"));
+const TrustedBySection = lazyImport(() => import("./components/TrustedBySection"));
+const ProblemSection = lazyImport(() => import("./components/ProblemSection"));
+const HowItWorks = lazyImport(() => import("./components/HowItWorks"));
 const DemoSection = lazyImport(() => import("./components/DemoSection"));
 const PricingPreview = lazyImport(() => import("./components/PricingPreview"));
 const Testimonials = lazyImport(() => import("./components/TestimonialsSection"));

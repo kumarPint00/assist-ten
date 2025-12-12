@@ -17,7 +17,7 @@
     "@mui/material": "^5.15.15",
     "axios": "^1.13.2",
     "formik": "^2.4.6",
-    "framer-motion": "^12.23.26",
+    "framer-motion": "^10.18.0",
     "mammoth": "^1.11.0",
     "next": "^14.2.4",
     "pdfjs-dist": "^5.4.449",
