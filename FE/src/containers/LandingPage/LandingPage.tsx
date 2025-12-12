@@ -12,6 +12,7 @@ const Testimonials = lazyImport(() => import("./components/TestimonialsSection")
 const FeaturesSectionLazy = lazyImport(() => import("./components/ProductFeaturesSection"));
 const FAQSectionLazy = lazyImport(() => import("./components/FAQSection"));
 import Footer from "./components/Footer";
+import FloatingActionButton from "./components/FloatingActionButton";
 import "./LandingPage.scss";
 
 const LandingPage = () => {
@@ -56,6 +57,7 @@ const LandingPage = () => {
         <FAQSectionLazy />
       </div>
       <Footer />
+      <FloatingActionButton />
     </div>
   );
 };
