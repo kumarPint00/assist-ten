@@ -727,6 +727,28 @@ class ApplicationNoteResponse(BaseModel):
     updated_at: datetime
 
 
+# ============ ADMIN ACTION SCHEMAS ============
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: str  # pending, in_progress, completed, shortlisted, rejected
+    note: Optional[str] = None
+
+
+class RequisitionStatusUpdate(BaseModel):
+    status: str  # draft, open, paused, closed, filled, cancelled
+    is_published: Optional[bool] = None
+
+
+class BulkNotificationCreate(BaseModel):
+    user_ids: Optional[List[int]] = None
+    tenant_id: Optional[str] = None
+    notification_type: str
+    title: str
+    message: str
+    priority: str = "normal"
+
+
 # ============ SUPERADMIN SCHEMAS ============
 
 class AuditLogCreate(BaseModel):

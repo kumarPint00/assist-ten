@@ -17,6 +17,8 @@ from app.db.models import (
     Assessment,
     Candidate,
 )
+from app.db.models import JobRequisition, Notification
+from app.models.schemas import ApplicationStatusUpdate, RequisitionStatusUpdate, BulkNotificationCreate
 from app.core.dependencies import get_current_user
 from app.core.security import check_admin
 
@@ -195,6 +197,126 @@ async def update_admin_settings(
     await db.refresh(admin_settings)
     
     return AdminSettingsResponse(settings=admin_settings.settings)
+
+
+@router.get("/admin/requisitions", response_model=List[dict])
+async def admin_list_requisitions(
+    status: Optional[str] = None,
+    is_published: Optional[bool] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await check_admin(current_user)
+    stmt = select(JobRequisition)
+    if status:
+        stmt = stmt.where(JobRequisition.status == status)
+    if is_published is not None:
+        stmt = stmt.where(JobRequisition.is_published == is_published)
+    stmt = stmt.order_by(desc(JobRequisition.created_at)).limit(200)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [r.__dict__ for r in rows]
+
+
+@router.patch("/admin/requisitions/{requisition_id}/status")
+async def admin_update_requisition_status(
+    requisition_id: str,
+    payload: RequisitionStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await check_admin(current_user)
+    result = await db.execute(select(JobRequisition).where(JobRequisition.requisition_id == requisition_id))
+    req = result.scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="Requisition not found")
+    if payload.status:
+        req.status = payload.status
+    if payload.is_published is not None:
+        req.is_published = payload.is_published
+        req.published_at = datetime.utcnow() if payload.is_published else None
+    await db.commit()
+    return {"message": "Updated"}
+
+
+@router.get("/admin/applications", response_model=List[dict])
+async def admin_list_applications(status: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    await check_admin(current_user)
+    stmt = select(AssessmentApplication)
+    if status:
+        stmt = stmt.where(AssessmentApplication.status == status)
+    stmt = stmt.order_by(desc(AssessmentApplication.applied_at)).limit(200)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [r.__dict__ for r in rows]
+
+
+@router.patch("/admin/applications/{application_id}/status")
+async def admin_update_application_status(
+    application_id: str,
+    payload: ApplicationStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await check_admin(current_user)
+    result = await db.execute(select(AssessmentApplication).where(AssessmentApplication.application_id == application_id))
+    app_obj = result.scalar_one_or_none()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail="Application not found")
+    app_obj.status = payload.status
+    # Optionally add a note as ApplicationNote
+    if payload.note:
+        note = ApplicationNote(
+            application_id=application_id,
+            author_id=current_user.id,
+            note_text=payload.note,
+            note_type="admin",
+            is_private=True,
+        )
+        db.add(note)
+    await db.commit()
+    return {"message": "Application updated"}
+
+
+@router.post("/admin/notifications/bulk")
+async def admin_bulk_notifications(
+    payload: BulkNotificationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await check_admin(current_user)
+    created = []
+    if payload.user_ids:
+        for uid in payload.user_ids:
+            notif = Notification(
+                user_id=uid,
+                notification_type=payload.notification_type,
+                title=payload.title,
+                message=payload.message,
+                priority=payload.priority,
+            )
+            db.add(notif)
+            created.append(uid)
+    elif payload.tenant_id:
+        # Create a notification for all users in a tenant (simple implementation)
+        users_stmt = select(User).where(User.role == "user")
+        res = await db.execute(users_stmt)
+        users = res.scalars().all()
+        for u in users:
+            notif = Notification(
+                user_id=u.id,
+                notification_type=payload.notification_type,
+                title=payload.title,
+                message=payload.message,
+                priority=payload.priority,
+            )
+            db.add(notif)
+            created.append(u.id)
+    else:
+        raise HTTPException(status_code=400, detail="Provide user_ids or tenant_id")
+
+    await db.commit()
+    return {"created_for": created}
 
 
 class AdminCreateRequest(BaseModel):
