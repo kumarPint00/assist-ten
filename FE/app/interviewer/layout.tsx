@@ -43,7 +43,7 @@ export default function InterviewerLayout({ children }: { children: ReactNode })
             Support
           </Typography>
           <Typography variant="caption" fontWeight={600}>
-            interviewer@assist-ten.com
+            interviewer@assist10.com
           </Typography>
         </Stack>
       </Box>

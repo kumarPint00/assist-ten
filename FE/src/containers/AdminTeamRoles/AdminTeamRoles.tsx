@@ -1,5 +1,6 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { adminService } from "../../API/services";
 import "./AdminTeamRoles.scss";
 
 type RoleOption = "Admin" | "Recruiter" | "Interviewer" | "Viewer";
@@ -19,12 +20,7 @@ const ROLE_DESCRIPTIONS: Record<RoleOption, string> = {
   Viewer: "Read-only visibility into dashboards and candidate progress.",
 };
 
-const SAMPLE_USERS: UserRecord[] = [
-  { id: 1, name: "Shanice Patel", email: "shanice@assist-ten.com", role: "Admin", status: "Active" },
-  { id: 2, name: "Raul Mendoza", email: "raul@assist-ten.com", role: "Recruiter", status: "Active" },
-  { id: 3, name: "Anika Bose", email: "anika@assist-ten.com", role: "Interviewer", status: "Pending" },
-  { id: 4, name: "Marco Ili", email: "marco@assist-ten.com", role: "Viewer", status: "Active" },
-];
+// Users are fetched from adminService.listAdmins
 
 const ROLE_OPTIONS: RoleOption[] = ["Admin", "Recruiter", "Interviewer", "Viewer"];
 
@@ -35,6 +31,9 @@ const AdminTeamRoles = () => {
   const [selectedUser, setSelectedUser] = React.useState<UserRecord | null>(null);
   const [inviteForm, setInviteForm] = React.useState({ name: "", email: "", role: "Viewer" });
   const [editRole, setEditRole] = React.useState<RoleOption>("Viewer");
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const openInvite = () => {
     setInviteForm({ name: "", email: "", role: "Viewer" });
@@ -58,6 +57,81 @@ const AdminTeamRoles = () => {
     setRemoveOpen(false);
     setSelectedUser(null);
   };
+
+  const handleInvite = async () => {
+    try {
+      await adminService.createAdminUser(inviteForm.email, inviteForm.name, inviteForm.role.toLowerCase());
+      // refresh
+      const res = await adminService.listAdmins();
+      const mapped = (res || []).map((u: any) => ({
+        id: u.id,
+        name: u.full_name || u.name || u.email,
+        email: u.email,
+        role: (u.role || 'Viewer') as RoleOption,
+        status: u.is_active ? 'Active' : 'Suspended',
+      }));
+      setUsers(mapped);
+      closeModals();
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.response?.data?.detail || 'Failed to invite user');
+    }
+  };
+
+  const handleSaveRole = async () => {
+    if (!selectedUser) return;
+    try {
+      await adminService.updateUserRole(selectedUser.id, editRole.toLowerCase());
+      // refresh
+      const res = await adminService.listAdmins();
+      const mapped = (res || []).map((u: any) => ({
+        id: u.id,
+        name: u.full_name || u.name || u.email,
+        email: u.email,
+        role: (u.role || 'Viewer') as RoleOption,
+        status: u.is_active ? 'Active' : 'Suspended',
+      }));
+      setUsers(mapped);
+      closeModals();
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.response?.data?.detail || 'Failed to update role');
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!selectedUser) return;
+    // backend delete may not be available; do local remove for now and refresh
+    setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
+    closeModals();
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await adminService.listAdmins();
+        if (!mounted) return;
+        // Normalize shape if backend differs
+        const mapped = (res || []).map((u: any) => ({
+          id: u.id,
+          name: u.full_name || u.name || u.email,
+          email: u.email,
+          role: (u.role || 'Viewer') as RoleOption,
+          status: u.is_active ? 'Active' : 'Suspended',
+        }));
+        setUsers(mapped);
+      } catch (err: any) {
+        console.error(err);
+        setError(err?.response?.data?.detail || 'Failed to load users');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <div className="admin-team">
@@ -89,7 +163,7 @@ const AdminTeamRoles = () => {
               </tr>
             </thead>
             <tbody>
-              {SAMPLE_USERS.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id}>
                   <td>
                     <strong>{user.name}</strong>
@@ -166,7 +240,7 @@ const AdminTeamRoles = () => {
               <button className="btn btn-outline" type="button" onClick={closeModals}>
                 Cancel
               </button>
-              <button className="btn btn-primary" type="button" onClick={closeModals}>
+              <button className="btn btn-primary" type="button" onClick={handleInvite}>
                 Send invite
               </button>
             </div>
@@ -199,7 +273,7 @@ const AdminTeamRoles = () => {
               <button className="btn btn-outline" type="button" onClick={closeModals}>
                 Cancel
               </button>
-              <button className="btn btn-primary" type="button" onClick={closeModals}>
+              <button className="btn btn-primary" type="button" onClick={handleSaveRole}>
                 Save role
               </button>
             </div>
@@ -221,7 +295,7 @@ const AdminTeamRoles = () => {
               <button className="btn btn-outline" type="button" onClick={closeModals}>
                 Keep user
               </button>
-              <button className="btn btn-danger" type="button" onClick={closeModals}>
+              <button className="btn btn-danger" type="button" onClick={handleRemoveUser}>
                 Confirm removal
               </button>
             </div>

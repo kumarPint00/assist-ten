@@ -13,6 +13,7 @@ from app.models.schemas import (
     InterviewSessionResponse,
     InterviewFeedbackCreate,
     InterviewFeedbackResponse,
+    InterviewFeedbackUpdate,
 )
 from app.core.dependencies import get_current_user
 
@@ -22,6 +23,25 @@ router = APIRouter(prefix="/api/v1/interviewer", tags=["interviewer"])
 def _ensure_interviewer_or_admin(user):
     if not hasattr(user, 'role') or user.role not in ("interviewer", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Interviewer or admin privileges required")
+
+
+
+
+
+@router.get("/interviews", response_model=List[InterviewSessionResponse])
+async def list_my_interviews(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[InterviewSessionResponse]:
+    # Interviewers see their interviews; admins see all
+    if current_user.role in ("admin", "superadmin"):
+        stmt = select(InterviewSession).order_by(desc(InterviewSession.scheduled_at))
+    else:
+        stmt = select(InterviewSession).where(InterviewSession.interviewer_id == current_user.id).order_by(desc(InterviewSession.scheduled_at))
+
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [InterviewSessionResponse.from_orm(r) for r in rows]
 
 
 @router.post("/interviews", response_model=InterviewSessionResponse, status_code=201)
@@ -52,22 +72,6 @@ async def schedule_interview(
     await db.commit()
     await db.refresh(interview)
     return InterviewSessionResponse.from_orm(interview)
-
-
-@router.get("/interviews", response_model=List[InterviewSessionResponse])
-async def list_my_interviews(
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> List[InterviewSessionResponse]:
-    # Interviewers see their interviews; admins see all
-    if current_user.role in ("admin", "superadmin"):
-        stmt = select(InterviewSession).order_by(desc(InterviewSession.scheduled_at))
-    else:
-        stmt = select(InterviewSession).where(InterviewSession.interviewer_id == current_user.id).order_by(desc(InterviewSession.scheduled_at))
-
-    result = await db.execute(stmt)
-    rows = result.scalars().all()
-    return [InterviewSessionResponse.from_orm(r) for r in rows]
 
 
 @router.get("/interviews/{interview_id}", response_model=InterviewSessionResponse)
@@ -132,6 +136,75 @@ async def complete_interview(interview_id: str, current_user=Depends(get_current
     return {"message": "Interview completed"}
 
 
+@router.post("/interviews/{interview_id}/cancel")
+async def cancel_interview(interview_id: str, payload: Optional[dict] = None, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    _ensure_interviewer_or_admin(current_user)
+    result = await db.execute(select(InterviewSession).where(InterviewSession.interview_id == interview_id))
+    iv = result.scalar_one_or_none()
+    if not iv:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    iv.status = "cancelled"
+    if payload and payload.get("reason"):
+        iv.cancellation_reason = payload.get("reason")
+    await db.commit()
+    return {"message": "Interview cancelled"}
+
+
+@router.get("/interviews/candidate/{candidate_id}", response_model=List[InterviewSessionResponse])
+async def list_candidate_interviews(candidate_id: int, page: int = 1, per_page: int = 20, db: AsyncSession = Depends(get_db)) -> List[InterviewSessionResponse]:
+    stmt = select(InterviewSession).where(InterviewSession.candidate_id == candidate_id).order_by(desc(InterviewSession.scheduled_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [InterviewSessionResponse.from_orm(r) for r in rows]
+
+
+@router.get("/interviews/requisition/{requisition_id}", response_model=List[InterviewSessionResponse])
+async def list_requisition_interviews(requisition_id: str, page: int = 1, per_page: int = 20, db: AsyncSession = Depends(get_db)) -> List[InterviewSessionResponse]:
+    stmt = select(InterviewSession).where(InterviewSession.requisition_id == requisition_id).order_by(desc(InterviewSession.scheduled_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [InterviewSessionResponse.from_orm(r) for r in rows]
+
+
+@router.get("/feedback/{interview_id}", response_model=InterviewFeedbackResponse)
+async def get_feedback(interview_id: str, db: AsyncSession = Depends(get_db)) -> InterviewFeedbackResponse:
+    result = await db.execute(select(InterviewFeedback).where(InterviewFeedback.interview_id == interview_id))
+    fb = result.scalar_one_or_none()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    return InterviewFeedbackResponse.from_orm(fb)
+
+
+@router.get("/feedback", response_model=List[InterviewFeedbackResponse])
+async def list_feedbacks(interviewer_id: Optional[int] = None, recommendation: Optional[str] = None, page: int = 1, per_page: int = 20, db: AsyncSession = Depends(get_db)) -> List[InterviewFeedbackResponse]:
+    stmt = select(InterviewFeedback)
+    if interviewer_id:
+        stmt = stmt.where(InterviewFeedback.interviewer_id == interviewer_id)
+    if recommendation:
+        stmt = stmt.where(InterviewFeedback.recommendation == recommendation)
+    stmt = stmt.order_by(desc(InterviewFeedback.submitted_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [InterviewFeedbackResponse.from_orm(r) for r in rows]
+
+
+@router.patch("/feedback/{interview_id}", response_model=InterviewFeedbackResponse)
+async def update_feedback(interview_id: str, payload: InterviewFeedbackUpdate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> InterviewFeedbackResponse:
+    _ensure_interviewer_or_admin(current_user)
+    result = await db.execute(select(InterviewFeedback).where(InterviewFeedback.interview_id == interview_id))
+    fb = result.scalar_one_or_none()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    # Only original interviewer or admin can update
+    if current_user.role not in ("admin", "superadmin") and current_user.id != fb.interviewer_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this feedback")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(fb, k, v)
+    await db.commit()
+    await db.refresh(fb)
+    return InterviewFeedbackResponse.from_orm(fb)
+
+
 @router.post("/feedback", response_model=InterviewFeedbackResponse, status_code=201)
 async def submit_feedback(payload: InterviewFeedbackCreate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> InterviewFeedbackResponse:
     _ensure_interviewer_or_admin(current_user)
@@ -157,12 +230,3 @@ async def submit_feedback(payload: InterviewFeedbackCreate, current_user=Depends
     await db.commit()
     await db.refresh(feedback)
     return InterviewFeedbackResponse.from_orm(feedback)
-
-
-@router.get("/feedback/{interview_id}", response_model=InterviewFeedbackResponse)
-async def get_feedback(interview_id: str, db: AsyncSession = Depends(get_db)) -> InterviewFeedbackResponse:
-    result = await db.execute(select(InterviewFeedback).where(InterviewFeedback.interview_id == interview_id))
-    fb = result.scalar_one_or_none()
-    if not fb:
-        raise HTTPException(status_code=404, detail="Feedback not found")
-    return InterviewFeedbackResponse.from_orm(fb)

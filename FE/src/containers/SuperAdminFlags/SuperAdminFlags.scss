@@ -1,0 +1,8 @@
+/* Basic styles for SuperAdminFlags */
+.superadmin-flags {
+  padding: 16px;
+}
+.superadmin-flags .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.superadmin-flags .table { border: 1px solid #eee; border-radius: 6px; overflow:hidden }
+.superadmin-flags .table-head { display:flex; gap:12px; padding:8px 12px; background:#fafafa; font-weight:600 }
+.superadmin-flags .table-body .table-row { display:flex; gap:12px; padding:10px 12px; border-top:1px solid #f2f2f2 }

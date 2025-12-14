@@ -1,7 +1,7 @@
 """Bootstrap script to create a superadmin and optionally seed admin users.
 
 Usage:
-  python scripts/create_superadmin.py --email admin@assist-ten.com --full-name "Admin User"  
+  python scripts/create_superadmin.py --email admin@assist10.com --full-name "Admin User"  
 
 Environment:
   - SUPERADMIN_EMAIL: email for superadmin (optional, can be provided as --email)

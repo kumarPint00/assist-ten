@@ -25,7 +25,7 @@ export default function CandidateCompletionPage() {
               The company will quietly review your answers and loop in the hiring manager. We do not surface any scores or proctoring notes here.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Need help? Reach out to support@assist-ten.com and we will reply within one business day.
+              Need help? Reach out to support@assist10.com and we will reply within one business day.
             </Typography>
           </Stack>
 

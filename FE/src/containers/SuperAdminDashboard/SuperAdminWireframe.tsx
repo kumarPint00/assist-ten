@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import KpiCard from '../../components/superadmin/KpiCard';
 import FilterBar from '../../components/superadmin/FilterBar';
 import LineChart from '../../components/superadmin/LineChart';
@@ -8,15 +8,45 @@ import SystemHealthCard from '../../components/superadmin/SystemHealthCard';
 import AdminUsersTable from './AdminUsersTable';
 import { Button } from '@mui/material';
 import './SuperAdminWireframe.scss';
+import { adminService, superadminService } from '../../API/services';
 
-const sampleAlerts: AlertItem[] = [
-  { id: 'a1', type: 'AI Failure', severity: 'critical', message: 'LLM timeout on skill extraction', time: new Date().toISOString(), resolved: false },
-  { id: 'a2', type: 'Proctor Violation', severity: 'warning', message: 'Multiple camera disconnects on candidate-183', time: new Date().toISOString(), resolved: false },
-  { id: 'a3', type: 'Billing', severity: 'info', message: 'Billing anomaly: negative balance on tenant-12', time: new Date().toISOString(), resolved: false },
-];
+// Alerts will be loaded from superadmin incidents
 
 const SuperAdminWireframe = ({ admins, onSwitchView }:{ admins?: any[]; onSwitchView?: (mode: 'classic' | 'wireframe') => void }) => {
   const [q, setQ] = useState('');
+  const [stats, setStats] = useState<any>(null);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const s = await adminService.getSystemStats();
+        const inc = await superadminService.listIncidents(50);
+        if (!mounted) return;
+        setStats(s);
+        const mapped: AlertItem[] = (inc || []).map((i: any) => ({
+          id: String(i.id || i.incident_id || i.incidentId || Math.random()),
+          type: i.type || i.title || 'Incident',
+          severity: i.severity || 'warning',
+          message: i.summary || i.message || i.description || '—',
+          time: i.created_at || new Date().toISOString(),
+          resolved: i.status === 'resolved' || i.resolved === true,
+        }));
+        setAlerts(mapped);
+      } catch (err: any) {
+        console.error(err);
+        setError(err?.response?.data?.detail || 'Failed to load wireframe data');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
   return (
     <div className="superadmin-wireframe">
       <div className="sa-toolbar">
@@ -29,12 +59,12 @@ const SuperAdminWireframe = ({ admins, onSwitchView }:{ admins?: any[]; onSwitch
       </div>
       {/* KPI Row */}
       <div className="kpi-grid">
-        <KpiCard compact title="Active tenants" value={152} sub="Live tenants across orgs" />
-        <KpiCard compact title="Interviews today" value={420} sub="Started today" />
-        <KpiCard compact title="Interviews this week" value={2320} sub="Rolling 7 days" />
-        <KpiCard compact title="Cost today (₹)" value={6540} sub="LLM + infra" />
-        <KpiCard compact title="Revenue today (₹)" value={13200} sub="Candidate fees & plans" />
-        <KpiCard compact title="Failed interviews" value={12} sub="Proctoring or system errors" />
+        <KpiCard compact title="Active tenants" value={stats?.active_tenants ?? stats?.total_tenants ?? 0} sub="Live tenants across orgs" />
+        <KpiCard compact title="Interviews today" value={stats?.interviews_today ?? stats?.interviews_today_count ?? 0} sub="Started today" />
+        <KpiCard compact title="Interviews this week" value={stats?.interviews_week ?? stats?.interviews_week_count ?? 0} sub="Rolling 7 days" />
+        <KpiCard compact title="Cost today (₹)" value={stats?.cost_today ?? 0} sub="LLM + infra" />
+        <KpiCard compact title="Revenue today (₹)" value={stats?.revenue_today ?? 0} sub="Candidate fees & plans" />
+        <KpiCard compact title="Failed interviews" value={stats?.failed_interviews ?? 0} sub="Proctoring or system errors" />
       </div>
 
       {/* Main area */}
@@ -78,7 +108,7 @@ const SuperAdminWireframe = ({ admins, onSwitchView }:{ admins?: any[]; onSwitch
             <SystemHealthCard name="LLM latency" value="230 ms" details="Avg / 5 min" onAction={() => {}} />
           </div>
           <div className="alerts-card">
-            <AlertsPanel items={sampleAlerts} onResolve={(id) => console.log('resolve', id)} />
+            <AlertsPanel items={alerts} onResolve={(id) => console.log('resolve', id)} />
           </div>
         </div>
       </div>

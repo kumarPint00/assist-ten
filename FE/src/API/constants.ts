@@ -14,16 +14,16 @@ export const HTTP_POST = "post";
 export const HTTP_DELETE = "delete";
 
 export const allowedUsers = [
-  "admin@assist-ten.com",
-  "pintu@assist-ten.com",
-  "superadmin@assist-ten.com",
-  "recruiter@assist-ten.com",
-  "interviewer@assist-ten.com"
+  "admin@assist10.com",
+  "pintu@assist10.com",
+  "superadmin@assist10.com",
+  "recruiter@assist10.com",
+  "interviewer@assist10.com"
 ];
 
 export const candidateUsers = [
   {
-    email: "pintu@assist-ten.com",
+    email: "pintu@assist10.com",
     name: "Pintu",
     role: "Product Developer",
     link: "/candidate-assessment/preview"

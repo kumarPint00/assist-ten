@@ -5,7 +5,7 @@ if it doesn't already exist, and optionally create admin users listed in
 `settings.ADMIN_EMAILS`.
 
 Usage:
-  python scripts/seed_db.py --email superadmin@assist-ten.com --full-name "Super Admin" --create-admins
+  python scripts/seed_db.py --email superadmin@assist10.com --full-name "Super Admin" --create-admins
 
 By default it reads `SUPERADMIN_EMAIL` and `SUPERADMIN_NAME` from env vars and will
 create admin users listed in `settings.ADMIN_EMAILS` when `--create-admins` is passed.
@@ -56,7 +56,7 @@ async def main():
 
     args = parser.parse_args()
 
-    email = args.email or os.environ.get("SUPERADMIN_EMAIL") or "superadmin@assist-ten.com"
+    email = args.email or os.environ.get("SUPERADMIN_EMAIL") or "superadmin@assist10.com"
     full_name = args.full_name or os.environ.get("SUPERADMIN_NAME") or "Super Admin"
     create_admins = args.create_admins or False
 

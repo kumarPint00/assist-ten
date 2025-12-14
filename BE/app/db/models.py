@@ -333,6 +333,8 @@ class Candidate(Base, TimestampMixin):
     jd_file_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Reference to uploaded JD
     cv_file_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Reference to uploaded CV
     portfolio_file_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Reference to portfolio
+    # Assignment (recruiter) tracking
+    assigned_recruiter_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -340,6 +342,11 @@ class Candidate(Base, TimestampMixin):
     # Relationships
     assessment_applications: Mapped[list["AssessmentApplication"]] = relationship(
         "AssessmentApplication", back_populates="candidate", cascade="all, delete-orphan"
+    )
+
+    # Candidate notes
+    notes: Mapped[list["CandidateNote"]] = relationship(
+        "CandidateNote", back_populates="candidate", cascade="all, delete-orphan"
     )
     
     __table_args__ = (
@@ -948,7 +955,16 @@ class ProctoringEvent(Base, TimestampMixin):
     # Context
     question_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     snapshot_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # S3 URL for captured image
-    metadata: Mapped[dict] = mapped_column(JSON, default={}, nullable=False)  # Additional context
+    # Use `event_metadata` as the mapped attribute name to avoid conflict with SQLAlchemy's
+    # reserved `metadata` attribute on declarative classes. Map it to the existing DB column
+    # named `metadata` so existing migrations and DB schemas remain compatible.
+    event_metadata: Mapped[dict] = mapped_column("metadata", JSON, default={}, nullable=False)
+
+    # NOTE: We intentionally avoid defining a class-level attribute named `metadata`
+    # because SQLAlchemy's Declarative API reserves that name for the MetaData object.
+    # Use `event_metadata` as the mapped attribute and map it to the DB column named
+    # `metadata` in the migration. The Pydantic response schema maps `event_metadata`
+    # back to the external `metadata` field via aliasing.
     
     # Review
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -1054,6 +1070,39 @@ class ApplicationNote(Base, TimestampMixin):
     
     def __repr__(self) -> str:
         return f"<ApplicationNote(id={self.id}, application_id='{self.application_id}')>"
+
+
+class CandidateNote(Base, TimestampMixin):
+    """Notes/comments attached to candidate profiles for internal workflows."""
+
+    __tablename__ = "candidate_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    note_id: Mapped[str] = mapped_column(
+        String(100), unique=True, index=True, nullable=False,
+        default=lambda: f"cnote_{uuid.uuid4().hex[:12]}"
+    )
+
+    # Links
+    candidate_id: Mapped[str] = mapped_column(String(100), ForeignKey("candidates.candidate_id"), nullable=False, index=True)
+
+    # Note details
+    author_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    note_text: Mapped[str] = mapped_column(Text, nullable=False)
+    note_type: Mapped[str] = mapped_column(String(50), default="general", nullable=False)
+    is_private: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relationships
+    author: Mapped["User"] = relationship("User")
+    candidate: Mapped["Candidate"] = relationship("Candidate", back_populates="notes")
+
+    __table_args__ = (
+        Index("ix_candidate_notes_candidate_id", "candidate_id"),
+        Index("ix_candidate_notes_author_id", "author_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CandidateNote(id={self.id}, candidate_id='{self.candidate_id}', author_id={self.author_id})>"
 
 
 # ============ SUPERADMIN MODELS ===========

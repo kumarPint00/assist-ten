@@ -1,124 +1,52 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { interviewerService } from "../../API/services";
 import "./SuperAdminInterviews.scss";
 
-const sampleInterviews = [
-  {
-    id: "int-001",
-    candidate: "Nisha Rao",
-    company: "North Star Labs",
-    type: "AI",
-    status: "Completed",
-    score: 84,
-    proctoring: "OK",
-    interviewDate: "2025-12-12T10:30:00Z",
-    summary: "Technical interview focused on architecture, system design, and behavioural cues.",
-    skillScores: [
-      { skill: "Algorithms", value: 88 },
-      { skill: "System Design", value: 81 },
-      { skill: "Leadership", value: 79 },
-    ],
-    aiNotes: [
-      "Confident explanation of distributed tracing",
-      "Missed edge-case for multi-tenant isolation",
-    ],
-    proctorTimeline: [
-      "00:00 — Candidate joined session",
-      "10:14 — Camera disconnected (reconnected automatically)",
-      "24:02 — Remote proctor raised verification alert",
-      "42:10 — Session completed",
-    ],
-    finalDecision: "Consider",
-    plan: "Enterprise",
-    violations: false,
-  },
-  {
-    id: "int-002",
-    candidate: "Sanjay M.",
-    company: "Arbor Ventures",
-    type: "Human",
-    status: "In review",
-    score: 72,
-    proctoring: "Under review",
-    interviewDate: "2025-12-10T14:05:00Z",
-    summary: "Live interview for customer success role.",
-    skillScores: [
-      { skill: "Communication", value: 79 },
-      { skill: "Problem Solving", value: 76 },
-      { skill: "Adaptability", value: 65 },
-    ],
-    aiNotes: [
-      "Highlights candidate empathy",
-      "Spoke about handling escalations with structure",
-    ],
-    proctorTimeline: [
-      "00:00 — Interview launched",
-      "14:40 — Candidate shared screen", 
-      "29:22 — Proctor flagged possible violation (pending review)",
-    ],
-    finalDecision: "Hold",
-    plan: "Growth",
-    violations: true,
-  },
-  {
-    id: "int-003",
-    candidate: "Aria James",
-    company: "Horizon Retail Group",
-    type: "QnA",
-    status: "Scheduled",
-    score: null,
-    proctoring: "Scheduled",
-    interviewDate: "2025-12-18T09:00:00Z",
-    summary: "Automated knowledge check for e-commerce operations.",
-    skillScores: [
-      { skill: "Product Knowledge", value: null },
-      { skill: "Execution", value: null },
-    ],
-    aiNotes: ["Questions will be scored once candidate completes session."],
-    proctorTimeline: ["Upcoming session — proctor assigned"],
-    finalDecision: "Pending",
-    plan: "Essentials",
-    violations: false,
-  },
-];
+// Interviews are loaded from the API via interviewerService
 
-const companyOptions = Array.from(new Set(sampleInterviews.map((row) => row.company)));
 const typeOptions = ["AI", "Human", "QnA"];
+
+type InterviewRow = any;
 
 const SuperAdminInterviews = () => {
   const [companyFilter, setCompanyFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const [violationsOnly, setViolationsOnly] = useState(false);
-  const [selectedInterviewId, setSelectedInterviewId] = useState(sampleInterviews[0].id);
+  const [selectedInterviewId, setSelectedInterviewId] = useState<string | null>(null);
+  const [interviews, setInterviews] = useState<InterviewRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
 
   const filteredInterviews = useMemo(() => {
     const fromDate = dateRange.from ? new Date(dateRange.from) : null;
     const toDate = dateRange.to ? new Date(dateRange.to) : null;
 
-    return sampleInterviews.filter((interview) => {
+    return interviews.filter((interview) => {
       if (companyFilter !== "all" && interview.company !== companyFilter) {
         return false;
       }
-      if (typeFilter !== "all" && interview.type !== typeFilter) {
+      if (typeFilter !== "all" && interview.interview_type !== typeFilter && interview.type !== typeFilter) {
         return false;
       }
       if (violationsOnly && !interview.violations) {
         return false;
       }
-      const interviewDate = new Date(interview.interviewDate);
-      if (fromDate && interviewDate < fromDate) {
+      const interviewDate = interview.scheduled_at ? new Date(interview.scheduled_at) : interview.interviewDate ? new Date(interview.interviewDate) : null;
+      if (fromDate && interviewDate && interviewDate < fromDate) {
         return false;
       }
-      if (toDate && interviewDate > toDate) {
+      if (toDate && interviewDate && interviewDate > toDate) {
         return false;
       }
       return true;
     });
-  }, [companyFilter, typeFilter, dateRange, violationsOnly]);
+  }, [companyFilter, typeFilter, dateRange, violationsOnly, interviews]);
 
   const selectedInterview =
-    filteredInterviews.find((row) => row.id === selectedInterviewId) ?? sampleInterviews[0];
+    filteredInterviews.find((row) => row.id === selectedInterviewId || row.interview_id === selectedInterviewId) ?? filteredInterviews[0] ?? null;
 
   const formatDate = (value: string | null) => {
     if (!value) return "—";
@@ -130,6 +58,50 @@ const SuperAdminInterviews = () => {
       minute: "2-digit",
     });
   };
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        // Try to fetch interviews via interviewer API (falls back to empty list)
+        const res = await interviewerService.listMyInterviews();
+        if (!mounted) return;
+        // Map to a common shape used by the UI where possible
+        const mapped = (res || []).map((r: any) => ({
+          id: r.interview_id || r.id,
+          interview_id: r.interview_id || r.id,
+          candidate: r.candidate_name || r.candidate_id || "—",
+          company: r.company || r.requisition_title || "—",
+          type: r.interview_type || r.type || "—",
+          interview_type: r.interview_type || r.type || "—",
+          status: r.status || "—",
+          score: r.score ?? null,
+          proctoring: r.proctoring_status || "—",
+          interviewDate: r.scheduled_at || r.interview_date || null,
+          summary: r.summary || r.preparation_notes || "",
+          skillScores: r.skill_scores || [],
+          aiNotes: r.ai_notes || [],
+          proctorTimeline: r.proctoring_timeline || [],
+          finalDecision: r.final_decision || "",
+          plan: r.plan || "",
+          violations: r.violations || false,
+        }));
+        setInterviews(mapped);
+        setCompanyOptions(Array.from(new Set(mapped.map((m: any) => m.company).filter(Boolean))));
+        if (mapped.length > 0 && !selectedInterviewId) setSelectedInterviewId(mapped[0].id);
+      } catch (err: any) {
+        console.error(err);
+        setError(err?.response?.data?.detail || "Failed to load interviews");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="superadmin-interviews">

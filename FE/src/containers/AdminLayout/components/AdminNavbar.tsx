@@ -15,6 +15,7 @@ const AdminNavbar = () => {
   const provider = settings.llmProvider || 'groq';
   const navigate = useNavigate();
   const [role, setRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const location = useLocation();
   const pageTitle = location.pathname?.startsWith('/admin/super') ? 'Super Admin Panel' : 'Admin Dashboard';
 
@@ -23,6 +24,7 @@ const AdminNavbar = () => {
       try {
         const user = await userService.getCurrentUser();
         setRole(user?.role || null);
+        setUserEmail(user?.email || null);
       } catch (e) {
         setRole(null);
       }
@@ -75,6 +77,9 @@ const AdminNavbar = () => {
             <div className="user-icon-wrapper" onClick={handleMenuOpen}>
             <FaUserCircle className="nav-icon" size={26} />
           </div>
+            {userEmail && (
+              <div className="user-email">{userEmail}</div>
+            )}
             {role && (
               <div className="user-role">{role.toUpperCase()}</div>
             )}
@@ -88,8 +93,7 @@ const AdminNavbar = () => {
         onClose={handleMenuClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        
-
+        {userEmail && <MenuItem disabled sx={{ opacity: 0.8 }}>{userEmail}</MenuItem>}
         <MenuItem onClick={openLogoutDialog} sx={{ color: "red" }}>
           Logout
         </MenuItem>

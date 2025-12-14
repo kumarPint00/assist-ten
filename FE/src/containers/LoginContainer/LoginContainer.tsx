@@ -74,7 +74,7 @@ const LoginContainer = () => {
       navigate(`/candidate?${query}`);
       return;
     }
-    if (values.email === "recruiter@assist-ten.com") {
+    if (values.email === "recruiter@assist10.com") {
       navigate("/recruiter");
       return;
     }
@@ -82,36 +82,30 @@ const LoginContainer = () => {
     try {
       const user = await userService.getCurrentUser();
       const role = user?.role || 'user';
+
       if (role === 'superadmin') {
         navigate('/admin/super');
-      } else if (role === 'admin') {
+        return;
+      }
+
+      // Developer convenience: if this is the known superadmin email but the
+      // server has not set the role, surface a helpful alert and redirect.
+      if (values.email === 'superadmin@assist10.com') {
+        alert('Note: your account is not marked as superadmin on the server. If you need full access, run the backend seed script to create a superadmin (see BE/scripts/seed_db.py). Redirecting to SuperAdmin panel.');
+        navigate('/admin/super');
+        return;
+      }
+
+      if (role === 'admin') {
         navigate('/admin/dashboard');
-      } else if (role === 'recruiter') {
+        return;
+      }
+
+      if (role === 'recruiter') {
         navigate('/recruiter');
-      } else {
-        const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
-        if (candidate) {
-          const query = new URLSearchParams({
-            name: candidate.name,
-            email: candidate.email,
-            role: candidate.role,
-            link: candidate.link,
-          }).toString();
-          navigate(`/candidate?${query}`);
-          return;
-        }
-        navigate('/app/profile-setup');
-      }
-    } catch (e) {
-      // Fallback to static check
-      if (isAdmin(values.email)) {
-        navigate("/admin/dashboard");
         return;
       }
-      if (values.email === "recruiter@assist-ten.com") {
-        navigate("/recruiter");
-        return;
-      }
+
       const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
       if (candidate) {
         const query = new URLSearchParams({
@@ -123,7 +117,40 @@ const LoginContainer = () => {
         navigate(`/candidate?${query}`);
         return;
       }
-      navigate("/app/profile-setup");
+
+      navigate('/app/profile-setup');
+
+    } catch (e) {
+      // Fallback to static checks when server call fails
+      if (isAdmin(values.email)) {
+        navigate('/admin/dashboard');
+        return;
+      }
+
+      if (values.email === 'superadmin@assist10.com') {
+        alert('Note: unable to confirm superadmin role from server. Redirecting to SuperAdmin panel (you may need to seed the backend user).');
+        navigate('/admin/super');
+        return;
+      }
+
+      if (values.email === 'recruiter@assist10.com') {
+        navigate('/recruiter');
+        return;
+      }
+
+      const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
+      if (candidate) {
+        const query = new URLSearchParams({
+          name: candidate.name,
+          email: candidate.email,
+          role: candidate.role,
+          link: candidate.link,
+        }).toString();
+        navigate(`/candidate?${query}`);
+        return;
+      }
+
+      navigate('/app/profile-setup');
     }
   };
 

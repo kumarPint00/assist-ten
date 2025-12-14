@@ -44,7 +44,7 @@ export default function RecruiterLayout({ children }: { children: ReactNode }) {
             Need quick help?
           </Typography>
           <Typography variant="caption" fontWeight={600}>
-            support@assist-ten.com
+            support@assist10.com
           </Typography>
         </Stack>
       </Box>

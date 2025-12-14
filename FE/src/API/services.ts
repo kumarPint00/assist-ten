@@ -305,9 +305,74 @@ export const candidateService = {
   },
 
   listCandidates: async (skip = 0, limit = 50): Promise<Candidate[]> => {
-    const response = await apiClient.get<Candidate[]>(
-      `/candidates?skip=${skip}&limit=${limit}`
-    );
+    const response = await apiClient.get<any>(`/candidates?skip=${skip}&limit=${limit}`);
+    // Backend may return a paginated object {status,total,skip,limit,data: [...]}
+    if (response.data && response.data.data) {
+      return response.data.data as Candidate[];
+    }
+    return response.data as Candidate[];
+  },
+
+  getCandidateFiles: async (candidateId: string) => {
+    const response = await apiClient.get(`/candidates/${candidateId}/files`);
+    return response.data;
+  },
+
+  listCandidateApplications: async (candidateId: string, page = 1, per_page = 20) => {
+    const response = await apiClient.get(`/candidates/${candidateId}/applications?page=${page}&per_page=${per_page}`);
+    return response.data;
+  },
+
+  searchCandidates: async (opts?: { q?: string; skill?: string; experience_level?: string; is_active?: boolean; page?: number; per_page?: number }) => {
+    const params = new URLSearchParams({ ...(opts?.q ? { q: opts.q } : {}), ...(opts?.skill ? { skill: opts.skill } : {}), ...(opts?.experience_level ? { experience_level: opts.experience_level } : {}), ...(opts?.is_active !== undefined ? { is_active: String(opts.is_active) } : {}), ...(opts?.page ? { page: String(opts.page) } : {}), ...(opts?.per_page ? { per_page: String(opts.per_page) } : {}) });
+    const q = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiClient.get(`/candidates/search${q}`);
+    return response.data;
+  },
+
+  addCandidateNote: async (candidateId: string, payload: { note_text: string; note_type?: string; is_private?: boolean }) => {
+    const response = await apiClient.post(`/candidates/${candidateId}/notes`, payload);
+    return response.data;
+  },
+
+  listCandidateNotes: async (candidateId: string) => {
+    const response = await apiClient.get(`/candidates/${candidateId}/notes`);
+    return response.data;
+  },
+
+  updateCandidateNote: async (noteId: string, payload: { note_text?: string; note_type?: string; is_private?: boolean }) => {
+    const response = await apiClient.patch(`/candidates/notes/${noteId}`, payload);
+    return response.data;
+  },
+
+  deleteCandidateNote: async (noteId: string) => {
+    const response = await apiClient.delete(`/candidates/notes/${noteId}`);
+    return response.data;
+  },
+
+  assignCandidate: async (candidateId: string, recruiterId: number) => {
+    const response = await apiClient.patch(`/candidates/${candidateId}/assign`, { recruiter_id: recruiterId });
+    return response.data;
+  },
+
+  bulkCandidates: async (action: 'deactivate' | 'reactivate' | 'export', candidateIds: string[]) => {
+    const response = await apiClient.post(`/candidates/bulk`, { action, candidate_ids: candidateIds });
+    return response.data;
+  },
+
+  inviteCandidateToAssessment: async (candidateId: string, assessmentId: string, expiresInHours = 24, message?: string) => {
+    const payload = { emails: [], expires_in_hours: expiresInHours, message: message ? JSON.stringify({ assessment_id: assessmentId, message }) : JSON.stringify({ assessment_id: assessmentId }) };
+    const response = await apiClient.post(`/candidates/${candidateId}/invite-assessment`, payload);
+    return response.data;
+  },
+
+  deactivateCandidate: async (candidateId: string) => {
+    const response = await apiClient.delete(`/candidates/${candidateId}`);
+    return response.data;
+  },
+
+  reactivateCandidate: async (candidateId: string) => {
+    const response = await apiClient.post(`/candidates/${candidateId}/reactivate`);
     return response.data;
   },
 
@@ -532,6 +597,28 @@ export const recruiterService = {
     const response = await apiClient.get(`/recruiter/applications/${applicationId}/notes`);
     return response.data;
   },
+
+  listApplications: async (opts?: { requisition_id?: string; status?: string; page?: number; per_page?: number }) => {
+    const params = new URLSearchParams({ ...(opts?.requisition_id ? { requisition_id: opts.requisition_id } : {}), ...(opts?.status ? { status: opts.status } : {}), ...(opts?.page ? { page: String(opts.page) } : {}), ...(opts?.per_page ? { per_page: String(opts.per_page) } : {}) });
+    const q = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiClient.get(`/recruiter/applications${q}`);
+    return response.data;
+  },
+
+  getApplication: async (applicationId: string) => {
+    const response = await apiClient.get(`/recruiter/applications/${applicationId}`);
+    return response.data;
+  },
+
+  updateApplicationStatus: async (applicationId: string, payload: { status?: string; note?: string }) => {
+    const response = await apiClient.patch(`/recruiter/applications/${applicationId}/status`, payload);
+    return response.data;
+  },
+
+  listRequisitionApplications: async (requisitionId: string, page = 1, per_page = 20) => {
+    const response = await apiClient.get(`/recruiter/requisitions/${requisitionId}/applications?page=${page}&per_page=${per_page}`);
+    return response.data;
+  },
 };
 
 // Interviewer types & service
@@ -600,6 +687,11 @@ export const interviewerService = {
     return response.data;
   },
 
+  cancelInterview: async (id: string, reason?: string) => {
+    const response = await apiClient.post(`/interviewer/interviews/${id}/cancel`, reason ? { reason } : {});
+    return response.data;
+  },
+
   submitFeedback: async (data: any) => {
     const response = await apiClient.post('/interviewer/feedback', data);
     return response.data;
@@ -607,6 +699,28 @@ export const interviewerService = {
 
   getFeedback: async (interviewId: string) => {
     const response = await apiClient.get(`/interviewer/feedback/${interviewId}`);
+    return response.data;
+  },
+
+  listFeedbacks: async (opts?: { interviewer_id?: number; recommendation?: string; page?: number; per_page?: number }) => {
+    const params = new URLSearchParams({ ...(opts?.interviewer_id ? { interviewer_id: String(opts.interviewer_id) } : {}), ...(opts?.recommendation ? { recommendation: opts.recommendation } : {}), ...(opts?.page ? { page: String(opts.page) } : {}), ...(opts?.per_page ? { per_page: String(opts.per_page) } : {}) });
+    const q = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiClient.get(`/interviewer/feedback${q}`);
+    return response.data;
+  },
+
+  updateFeedback: async (interviewId: string, payload: any) => {
+    const response = await apiClient.patch(`/interviewer/feedback/${interviewId}`, payload);
+    return response.data;
+  },
+
+  listCandidateInterviews: async (candidateId: number, page = 1, per_page = 20) => {
+    const response = await apiClient.get(`/interviewer/interviews/candidate/${candidateId}?page=${page}&per_page=${per_page}`);
+    return response.data;
+  },
+
+  listRequisitionInterviews: async (requisitionId: string, page = 1, per_page = 20) => {
+    const response = await apiClient.get(`/interviewer/interviews/requisition/${requisitionId}?page=${page}&per_page=${per_page}`);
     return response.data;
   },
 };
@@ -659,6 +773,26 @@ export const superadminService = {
     return response.data;
   },
 
+  getAuditLog: async (logId: string) => {
+    const response = await apiClient.get(`/superadmin/audit-logs/${logId}`);
+    return response.data;
+  },
+
+  listTenants: async (limit = 100) => {
+    const response = await apiClient.get(`/superadmin/tenants?limit=${limit}`);
+    return response.data;
+  },
+
+  getTenant: async (tenantId: string) => {
+    const response = await apiClient.get(`/superadmin/tenants/${tenantId}`);
+    return response.data;
+  },
+
+  deleteTenant: async (tenantId: string) => {
+    const response = await apiClient.delete(`/superadmin/tenants/${tenantId}`);
+    return response.data;
+  },
+
   createTenant: async (payload: any) => {
     const response = await apiClient.post('/superadmin/tenants', payload);
     return response.data;
@@ -684,6 +818,27 @@ export const superadminService = {
     return response.data;
   },
 
+  listIncidents: async (limit = 100, status?: string) => {
+    const params = new URLSearchParams({ ...(status ? { status } : {}), ...(limit ? { limit: String(limit) } : {}) });
+    const response = await apiClient.get(`/superadmin/incidents?${params.toString()}`);
+    return response.data;
+  },
+
+  getIncident: async (incidentId: string) => {
+    const response = await apiClient.get(`/superadmin/incidents/${incidentId}`);
+    return response.data;
+  },
+
+  listMetrics: async (limit = 200) => {
+    const response = await apiClient.get(`/superadmin/metrics?limit=${limit}`);
+    return response.data;
+  },
+
+  getMetric: async (metricId: string) => {
+    const response = await apiClient.get(`/superadmin/metrics/${metricId}`);
+    return response.data;
+  },
+
   createFlag: async (payload: any) => {
     const response = await apiClient.post('/superadmin/flags', payload);
     return response.data;
@@ -693,37 +848,24 @@ export const superadminService = {
     const response = await apiClient.patch(`/superadmin/flags/${flagId}`, payload);
     return response.data;
   },
-};
 
-// Admin client
-export const adminService = {
-  listRequisitions: async (status?: string, is_published?: boolean) => {
-    const params = new URLSearchParams({ ...(status ? { status } : {}), ...(is_published !== undefined ? { is_published: String(is_published) } : {}) });
-    const response = await apiClient.get(`/admin/requisitions?${params.toString()}`);
+  listFlags: async (limit = 200) => {
+    const response = await apiClient.get(`/superadmin/flags?limit=${limit}`);
     return response.data;
   },
 
-  updateRequisitionStatus: async (requisitionId: string, payload: { status?: string; is_published?: boolean }) => {
-    const response = await apiClient.patch(`/admin/requisitions/${requisitionId}/status`, payload);
+  getFlag: async (flagId: string) => {
+    const response = await apiClient.get(`/superadmin/flags/${flagId}`);
     return response.data;
   },
 
-  listApplications: async (status?: string) => {
-    const params = new URLSearchParams({ ...(status ? { status } : {}) });
-    const response = await apiClient.get(`/admin/applications?${params.toString()}`);
-    return response.data;
-  },
-
-  updateApplicationStatus: async (applicationId: string, payload: { status: string; note?: string }) => {
-    const response = await apiClient.patch(`/admin/applications/${applicationId}/status`, payload);
-    return response.data;
-  },
-
-  bulkNotifications: async (payload: any) => {
-    const response = await apiClient.post('/admin/notifications/bulk', payload);
+  deleteFlag: async (flagId: string) => {
+    const response = await apiClient.delete(`/superadmin/flags/${flagId}`);
     return response.data;
   },
 };
+
+
 
 export const skillsService = {
   getSkillSuggestions: async (query: string): Promise<string[]> => {
@@ -791,7 +933,34 @@ export const adminService = {
   updateUserRole: async (userId: string | number, role: string): Promise<any> => {
     const response = await apiClient.put(`/admin/users/${userId}/role`, { role });
     return response.data;
-  }
+  },
+
+    listRequisitions: async (status?: string, is_published?: boolean) => {
+    const params = new URLSearchParams({ ...(status ? { status } : {}), ...(is_published !== undefined ? { is_published: String(is_published) } : {}) });
+    const response = await apiClient.get(`/admin/requisitions?${params.toString()}`);
+    return response.data;
+  },
+
+  updateRequisitionStatus: async (requisitionId: string, payload: { status?: string; is_published?: boolean }) => {
+    const response = await apiClient.patch(`/admin/requisitions/${requisitionId}/status`, payload);
+    return response.data;
+  },
+
+  listApplications: async (status?: string) => {
+    const params = new URLSearchParams({ ...(status ? { status } : {}) });
+    const response = await apiClient.get(`/admin/applications?${params.toString()}`);
+    return response.data;
+  },
+
+  updateApplicationStatus: async (applicationId: string, payload: { status: string; note?: string }) => {
+    const response = await apiClient.patch(`/admin/applications/${applicationId}/status`, payload);
+    return response.data;
+  },
+
+  bulkNotifications: async (payload: any) => {
+    const response = await apiClient.post('/admin/notifications/bulk', payload);
+    return response.data;
+  },
 };
 
 export const adminSettingsAPI = {

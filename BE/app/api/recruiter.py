@@ -13,6 +13,7 @@ from app.models.schemas import (
     JobRequisitionResponse,
     ApplicationNoteCreate,
     ApplicationNoteResponse,
+    AssessmentApplicationResponse,
 )
 from app.core.dependencies import get_current_user
 
@@ -22,6 +23,20 @@ router = APIRouter(prefix="/api/v1/recruiter", tags=["recruiter"])
 def _ensure_recruiter_or_admin(user):
     if not hasattr(user, 'role') or user.role not in ("recruiter", "admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Recruiter or admin privileges required")
+
+
+
+
+@router.get("/requisitions", response_model=List[JobRequisitionResponse])
+async def list_requisitions(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> List[JobRequisitionResponse]:
+    stmt = select(JobRequisition).order_by(desc(JobRequisition.created_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [JobRequisitionResponse.from_orm(r) for r in rows]
 
 
 @router.post("/requisitions", response_model=JobRequisitionResponse, status_code=201)
@@ -57,18 +72,6 @@ async def create_requisition(
     await db.refresh(requisition)
 
     return JobRequisitionResponse.from_orm(requisition)
-
-
-@router.get("/requisitions", response_model=List[JobRequisitionResponse])
-async def list_requisitions(
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-) -> List[JobRequisitionResponse]:
-    stmt = select(JobRequisition).order_by(desc(JobRequisition.created_at)).limit(per_page).offset((page - 1) * per_page)
-    result = await db.execute(stmt)
-    rows = result.scalars().all()
-    return [JobRequisitionResponse.from_orm(r) for r in rows]
 
 
 @router.get("/requisitions/{requisition_id}", response_model=JobRequisitionResponse)
@@ -156,3 +159,71 @@ async def list_application_notes(application_id: str, db: AsyncSession = Depends
     result = await db.execute(stmt)
     notes = result.scalars().all()
     return [ApplicationNoteResponse.from_orm(n) for n in notes]
+
+
+@router.get("/applications", response_model=List[AssessmentApplicationResponse])
+async def list_applications(
+    requisition_id: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+) -> List[AssessmentApplicationResponse]:
+    stmt = select(AssessmentApplication)
+    if requisition_id:
+        stmt = stmt.where(AssessmentApplication.requisition_id == requisition_id)
+    if status:
+        stmt = stmt.where(AssessmentApplication.status == status)
+    stmt = stmt.order_by(desc(AssessmentApplication.applied_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [AssessmentApplicationResponse.from_orm(r) for r in rows]
+
+
+@router.get("/applications/{application_id}", response_model=AssessmentApplicationResponse)
+async def get_application(application_id: str, db: AsyncSession = Depends(get_db)) -> AssessmentApplicationResponse:
+    result = await db.execute(select(AssessmentApplication).where(AssessmentApplication.application_id == application_id))
+    app_obj = result.scalar_one_or_none()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return AssessmentApplicationResponse.from_orm(app_obj)
+
+
+@router.patch("/applications/{application_id}/status")
+async def update_application_status(
+    application_id: str,
+    payload: dict,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _ensure_recruiter_or_admin(current_user)
+    result = await db.execute(select(AssessmentApplication).where(AssessmentApplication.application_id == application_id))
+    app_obj = result.scalar_one_or_none()
+    if not app_obj:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Expect payload like {"status": "shortlisted", "note": "Reason"}
+    if "status" in payload:
+        app_obj.status = payload["status"]
+    if "note" in payload and payload["note"]:
+        note = ApplicationNote(
+            application_id=application_id,
+            author_id=current_user.id,
+            note_text=payload["note"],
+            note_type="status",
+            is_private=True,
+        )
+        db.add(note)
+
+    await db.commit()
+    await db.refresh(app_obj)
+    return AssessmentApplicationResponse.from_orm(app_obj)
+
+
+@router.get("/requisitions/{requisition_id}/applications", response_model=List[AssessmentApplicationResponse])
+async def list_requisition_applications(requisition_id: str, page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=200), db: AsyncSession = Depends(get_db)) -> List[AssessmentApplicationResponse]:
+    stmt = select(AssessmentApplication).where(AssessmentApplication.requisition_id == requisition_id)
+    stmt = stmt.order_by(desc(AssessmentApplication.applied_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [AssessmentApplicationResponse.from_orm(r) for r in rows]

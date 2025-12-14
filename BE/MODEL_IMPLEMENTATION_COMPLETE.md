@@ -413,6 +413,17 @@ alembic downgrade 008_add_skillmatch_model
 - `POST /api/v1/interviewer/feedback` - Submit feedback
 - `GET /api/v1/interviewer/feedback/{interview_id}` - Get feedback
 
+### Candidate features (new)
+
+- `GET /api/v1/candidates/search` - Search and filter candidates (q, skill, experience_level, is_active, page, per_page)
+- `POST /api/v1/candidates/{candidate_id}/notes` - Add an internal note to candidate profile
+- `GET /api/v1/candidates/{candidate_id}/notes` - List candidate notes (respects private visibility)
+- `PATCH /api/v1/candidates/notes/{note_id}` - Update candidate note (author/admin only)
+- `DELETE /api/v1/candidates/notes/{note_id}` - Delete candidate note (author/admin only)
+- `PATCH /api/v1/candidates/{candidate_id}/assign` - Assign candidate to a recruiter
+- `POST /api/v1/candidates/bulk` - Bulk actions: deactivate/reactivate/export
+- `POST /api/v1/candidates/{candidate_id}/invite-assessment` - Invite specific candidate to an assessment (admin only)
+
 ### Proctoring
 - `POST /api/v1/proctoring/events` - Log event
 - `GET /api/v1/admin/proctoring/events` - List events

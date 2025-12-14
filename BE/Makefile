@@ -74,7 +74,25 @@ seed-db:
 	python scripts/seed_db.py --create-admins
 
 test:
+	@$(MAKE) check-deps
 	pytest
+
+check-deps:
+	@echo "Checking that minimal Python dependencies are installed..."
+	@python3 - <<'PY'
+import sys
+missing = []
+for pkg in ('fastapi','sqlalchemy','alembic'):
+	try:
+		__import__(pkg)
+	except Exception as e:
+		missing.append(pkg)
+if missing:
+	print('Missing required packages:', ', '.join(missing))
+	print('Install them with: pip install -r requirements-minimal.txt')
+	sys.exit(1)
+print('Dependencies OK')
+PY
 
 test-cov:
 	pytest --cov=app --cov-report=html --cov-report=term

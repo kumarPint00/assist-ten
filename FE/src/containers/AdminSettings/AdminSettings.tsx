@@ -99,7 +99,7 @@ const AdminSettings: React.FC = () => {
   const [companyProfile, setCompanyProfile] = React.useState({
     name: "Assist Ten Labs",
     timezone: "UTC",
-    notifyEmail: "admin@assist-ten.com",
+    notifyEmail: "admin@assist10.com",
   });
   const [notificationPrefs, setNotificationPrefs] = React.useState<Record<string, boolean>>({
     email: true,

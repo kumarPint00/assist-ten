@@ -140,8 +140,8 @@ class Settings(BaseSettings):
     
     # Admin Users (email-based for MVP)
     ADMIN_EMAILS: list[str] = [
-        "admin@assist-ten.com",
-        "pintu@assist-ten.com"
+        "admin@assist10.com",
+        "pintu@assist10.com"
     ]
     
     # Logging

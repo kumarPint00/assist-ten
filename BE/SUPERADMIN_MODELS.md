@@ -81,7 +81,7 @@ audit = AuditLog(
 ```python
 tenant = Tenant(
     name="Acme Corp",
-    domain="acme.assist-ten.com",
+    domain="acme.assist10.com",
     subscription_tier="pro",
     max_users=100,
     max_assessments=50,

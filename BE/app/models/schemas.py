@@ -245,6 +245,33 @@ class CandidateResponse(BaseModel):
     updated_at: datetime
 
 
+class CandidateNoteCreate(BaseModel):
+    note_text: str
+    note_type: Optional[str] = "general"
+    is_private: Optional[bool] = True
+
+
+class CandidateNoteResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: int
+    note_id: str
+    candidate_id: str
+    author_id: int
+    note_text: str
+    note_type: str
+    is_private: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class CandidateSearchResponse(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    items: List[CandidateResponse]
+
+
 class SkillResponse(BaseModel):
     """Response with skill details."""
     id: int
@@ -596,6 +623,23 @@ class InterviewFeedbackCreate(BaseModel):
     follow_up_notes: Optional[str] = None
 
 
+class InterviewFeedbackUpdate(BaseModel):
+    """Partial update for interview feedback."""
+    overall_rating: Optional[float] = None
+    recommendation: Optional[str] = None
+    technical_skills_rating: Optional[float] = None
+    communication_rating: Optional[float] = None
+    problem_solving_rating: Optional[float] = None
+    culture_fit_rating: Optional[float] = None
+    skills_evaluated: Optional[dict] = None
+    strengths: Optional[str] = None
+    weaknesses: Optional[str] = None
+    detailed_notes: Optional[str] = None
+    questions_asked: Optional[List[str]] = None
+    requires_second_round: Optional[bool] = None
+    follow_up_notes: Optional[str] = None
+
+
 class InterviewFeedbackResponse(BaseModel):
     """Response with interview feedback details."""
     model_config = {"from_attributes": True}
@@ -637,7 +681,7 @@ class ProctoringEventCreate(BaseModel):
 
 class ProctoringEventResponse(BaseModel):
     """Response with proctoring event details."""
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
     
     id: int
     event_id: str
@@ -648,7 +692,8 @@ class ProctoringEventResponse(BaseModel):
     duration_seconds: Optional[int]
     question_id: Optional[int]
     snapshot_url: Optional[str]
-    metadata: dict
+    # Map the DB attribute `event_metadata` to the external name `metadata` via alias
+    event_metadata: dict = Field(alias="metadata")
     reviewed: bool
     reviewed_by: Optional[int]
     reviewed_at: Optional[datetime]

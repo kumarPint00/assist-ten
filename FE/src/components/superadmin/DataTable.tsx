@@ -12,18 +12,7 @@ export type Column<T> = {
   sortable?: boolean;
 };
 
-export default function DataTable<T extends { id: string | number } & Record<string, any>>({
-  columns,
-  rows,
-  selectable = false,
-  selected = [],
-  onSelect = () => {},
-  onSelectAll = () => {},
-  onSort = () => {},
-  sortKey,
-  sortDir,
-  compact = false,
-}: {
+export interface DataTableProps<T> {
   columns: Column<T>[];
   rows: T[];
   selectable?: boolean;
@@ -34,9 +23,26 @@ export default function DataTable<T extends { id: string | number } & Record<str
   sortKey?: string;
   sortDir?: 'asc' | 'desc' | null;
   compact?: boolean;
-}) {
+}
+
+export default function DataTable<T extends { id: string | number } & Record<string, any> = any>(props: DataTableProps<T>) {
+  const {
+    columns,
+    rows,
+    selectable = false,
+    selected = [],
+    onSelect,
+    onSelectAll,
+    onSort,
+    sortKey,
+    sortDir,
+    compact = false,
+  } = props;
   const allSelected = rows.length > 0 && rows.every(r => selected.includes(r.id));
   const someSelected = rows.some(r => selected.includes(r.id));
+  const onSelectFn = onSelect ?? (() => {});
+  const onSelectAllFn = onSelectAll ?? (() => {});
+  const onSortFn = onSort ?? (() => {});
 
   return (
     <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -44,8 +50,8 @@ export default function DataTable<T extends { id: string | number } & Record<str
         <TableHead>
           <TableRow>
             {selectable && (
-              <TableCell style={{ width: 48 }}>
-                <Checkbox checked={allSelected} indeterminate={!allSelected && someSelected} onChange={(e) => onSelectAll(e.target.checked)} aria-label="Select all rows" />
+                <TableCell style={{ width: 48 }}>
+                <Checkbox checked={allSelected} indeterminate={!allSelected && someSelected} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSelectAllFn(e.target.checked)} aria-label="Select all rows" />
               </TableCell>
             )}
                 {columns.map((col) => (
@@ -53,10 +59,10 @@ export default function DataTable<T extends { id: string | number } & Record<str
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <strong>{col.title}</strong>
                   {col.sortable && (
-                    <span style={{ cursor: 'pointer' }} onClick={() => onSort(col.key)}>
-                      {sortKey === col.key && sortDir === 'asc' ? <FiChevronUp /> : <FiChevronDown />}
-                    </span>
-                  )}
+                      <span style={{ cursor: 'pointer' }} onClick={() => onSortFn(col.key)}>
+                        {sortKey === col.key && sortDir === 'asc' ? <FiChevronUp /> : <FiChevronDown />}
+                      </span>
+                    )}
                 </div>
               </TableCell>
             ))}
@@ -70,11 +76,11 @@ export default function DataTable<T extends { id: string | number } & Record<str
             <TableRow key={r.id} className={r.className || ''}>
               {selectable && (
                 <TableCell>
-                  <Checkbox checked={selected.includes(r.id)} onChange={(e) => onSelect(r.id, e.target.checked)} inputProps={{ 'aria-label': `Select ${r.id}` }} />
+                  <Checkbox checked={selected.includes(r.id)} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSelectFn(r.id, e.target.checked)} inputProps={{ 'aria-label': `Select ${r.id}` }} />
                 </TableCell>
               )}
               {columns.map((col) => (
-                <TableCell key={col.key} style={{ padding: compact ? '8px 12px' : undefined }}>{col.render ? col.render(r) : r[col.key]}</TableCell>
+                <TableCell key={col.key} style={{ padding: compact ? '8px 12px' : undefined }}>{col.render ? col.render(r) : (r as any)[col.key]}</TableCell>
               ))}
             </TableRow>
           ))}

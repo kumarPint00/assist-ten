@@ -1,6 +1,6 @@
 export const adminUsers = [
-  "admin@assist-ten.com",
-  "pintu@assist-ten.com",
+  "admin@assist10.com",
+  "pintu@assist10.com",
 ];
 
 export const isAdmin = (email: string) => {

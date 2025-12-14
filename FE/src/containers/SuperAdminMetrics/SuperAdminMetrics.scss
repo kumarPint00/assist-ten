@@ -1,0 +1,6 @@
+/* Basic styles for SuperAdminMetrics */
+.superadmin-metrics { padding: 16px; }
+.superadmin-metrics .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px }
+.superadmin-metrics .table { border: 1px solid #eee; border-radius: 6px }
+.superadmin-metrics .table-head { display:flex; gap:12px; padding:8px 12px; background:#fafafa; font-weight:600 }
+.superadmin-metrics .table-body .table-row { display:flex; gap:12px; padding:10px 12px; border-top:1px solid #f2f2f2 }

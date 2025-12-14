@@ -16,7 +16,9 @@ export default function ClientLayout({
   const pathname = usePathname() || '/';
   const hideNavbarPaths = ['/login', '/logout', '/signup'];
   const hideForLandingPage = pathname === '/';
-  const showNavbar = !hideForLandingPage && !hideNavbarPaths.some((path) => pathname.startsWith(path));
+  // Hide main navbar for admin routes to avoid duplicate navigation bars
+  const hideForAdmin = pathname.startsWith('/admin');
+  const showNavbar = !hideForLandingPage && !hideForAdmin && !hideNavbarPaths.some((path) => pathname.startsWith(path));
 
   return (
     <ThemeProvider theme={theme}>

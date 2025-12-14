@@ -27,7 +27,7 @@ async def log_event(payload: ProctoringEventCreate, db: AsyncSession = Depends(g
         duration_seconds=payload.duration_seconds,
         question_id=payload.question_id,
         snapshot_url=payload.snapshot_url,
-        metadata=payload.metadata,
+        event_metadata=payload.metadata,
         detected_at=datetime.utcnow(),
     )
     db.add(evt)

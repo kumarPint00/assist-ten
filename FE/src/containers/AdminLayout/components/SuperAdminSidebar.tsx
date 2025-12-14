@@ -17,6 +17,8 @@ const SuperAdminSidebar = () => {
         <NavLink to="/admin/super/billing" className="admin-link">Billing</NavLink>
         <NavLink to="/admin/super/incidents" className="admin-link">Incidents</NavLink>
         <NavLink to="/admin/super/audit-logs" className="admin-link">Audit Logs</NavLink>
+        <NavLink to="/admin/super/flags" className="admin-link">Feature Flags</NavLink>
+        <NavLink to="/admin/super/metrics" className="admin-link">Metrics</NavLink>
         <NavLink to="/admin/super/system-settings" className="admin-link">System Settings</NavLink>
         <NavLink to="/admin/super/tenants" className="admin-link">Tenants</NavLink>
       </nav>

@@ -1,6 +1,8 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { superadminService } from "../../API/services";
 import "./SuperAdminAuditLogs.scss";
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 
 const auditEvents = [
   {
@@ -60,17 +62,51 @@ const SuperAdminAuditLogs = () => {
   const [selectedUser, setSelectedUser] = useState("all");
   const [selectedAction, setSelectedAction] = useState("all");
   const [dateRange, setDateRange] = useState({ start: "2025-12-08", end: "2025-12-13" });
+  const [logs, setLogs] = useState<any[]>(auditEvents);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [perPage] = useState(50);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
+
+  const exportLogsCsv = () => {
+    const rows = filteredEvents;
+    if (!rows || rows.length === 0) return;
+    const headers = ['user_email','action','entity_type','description','created_at','ip_address','severity'];
+    const csv = [headers.join(',')].concat(rows.map((r: any) => `${r.user_email||''},"${(r.action||'')}",${r.entity_type||''},"${(r.description||'')}",${r.created_at||''},${r.ip_address||''},${r.severity||''}`)).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'audit_logs.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await superadminService.listAuditLogs(perPage);
+        setLogs(data || []);
+      } catch (err) {
+        console.error('Failed to load audit logs', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [perPage]);
 
   const filteredEvents = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    return auditEvents.filter((event) => {
-      if (selectedUser !== "all" && event.actor !== selectedUser) {
+    return logs.filter((event) => {
+      if (selectedUser !== "all" && event.user_email !== selectedUser && event.user_email !== event.actor) {
         return false;
       }
-      if (selectedAction !== "all" && event.type !== selectedAction) {
+      if (selectedAction !== "all" && event.severity !== selectedAction && event.action !== selectedAction) {
         return false;
       }
-      const eventDate = new Date(event.timestamp);
+      const eventDate = new Date(event.created_at || event.timestamp);
       const start = new Date(dateRange.start);
       const end = new Date(dateRange.end);
       if (eventDate < start || eventDate > end) {
@@ -80,12 +116,13 @@ const SuperAdminAuditLogs = () => {
         return true;
       }
       return (
-        event.actor.toLowerCase().includes(normalizedSearch) ||
-        event.action.toLowerCase().includes(normalizedSearch) ||
-        event.entity.toLowerCase().includes(normalizedSearch)
+        (event.user_email || event.actor || '').toLowerCase().includes(normalizedSearch) ||
+        (event.action || '').toLowerCase().includes(normalizedSearch) ||
+        (event.entity_type || event.entity || '').toLowerCase().includes(normalizedSearch) ||
+        (event.description || '').toLowerCase().includes(normalizedSearch)
       );
     });
-  }, [searchTerm, selectedUser, selectedAction, dateRange]);
+  }, [searchTerm, selectedUser, selectedAction, dateRange, logs]);
 
   return (
     <div className="superadmin-auditlogs">
@@ -157,28 +194,66 @@ const SuperAdminAuditLogs = () => {
           <span>Timestamp</span>
           <span>IP address</span>
         </div>
+        <div className="table-actions">
+          <button className="ghost" onClick={exportLogsCsv}>Export log</button>
+        </div>
         <div className="table-body">
-          {filteredEvents.map((event) => (
-            <div key={event.id} className="table-row">
-              <span>{event.actor}</span>
+          {loading && <div className="table-row empty">Loading audit logs...</div>}
+          {!loading && filteredEvents.map((event: any) => (
+            <div key={event.log_id || event.id} className="table-row" onClick={async () => {
+              if (event.log_id) {
+                const full = await superadminService.getAuditLog(event.log_id);
+                setSelectedLog(full);
+              } else {
+                setSelectedLog(event);
+              }
+            }}>
+              <span>{event.user_email || event.actor || 'System'}</span>
               <span>{event.action}</span>
-              <span>{event.entity}</span>
-              <span>{new Date(event.timestamp).toLocaleString()}</span>
-              <span>{event.ip}</span>
+              <span>{event.entity_type || event.entity}</span>
+              <span>{new Date(event.created_at || event.timestamp).toLocaleString()}</span>
+              <span>{event.ip_address || event.ip || ''}</span>
             </div>
           ))}
-          {filteredEvents.length === 0 && (
+          {!loading && filteredEvents.length === 0 && (
             <div className="table-row empty">No audit events match the current filters.</div>
           )}
         </div>
         <div className="pagination">
-          <div>Showing {filteredEvents.length} of {auditEvents.length}</div>
+          <div>Showing {filteredEvents.length} of {logs.length}</div>
           <div className="page-controls">
-            <button disabled>Prev</button>
-            <button className="primary">Next</button>
+            <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
+            <button className="primary" onClick={() => setPage((p) => p + 1)}>Next</button>
           </div>
         </div>
       </section>
+      <Dialog open={!!selectedLog} onClose={() => setSelectedLog(null)} fullWidth maxWidth="md">
+        <DialogTitle>Audit Log Detail</DialogTitle>
+        <DialogContent>
+          {selectedLog ? (
+            <div style={{ whiteSpace: 'pre-wrap' }}>
+              <strong>Actor:</strong> {selectedLog.user_email || selectedLog.actor || 'System'}
+              <br />
+              <strong>Action:</strong> {selectedLog.action}
+              <br />
+              <strong>Entity:</strong> {selectedLog.entity_type || selectedLog.entity}
+              <br />
+              <strong>Severity:</strong> {selectedLog.severity}
+              <br />
+              <strong>When:</strong> {new Date(selectedLog.created_at || selectedLog.timestamp).toLocaleString()}
+              <br />
+              <strong>Description:</strong>
+              <div>{selectedLog.description}</div>
+              <br />
+              <strong>Changes:</strong>
+              <div>{JSON.stringify(selectedLog.changes || selectedLog.changes, null, 2)}</div>
+            </div>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedLog(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

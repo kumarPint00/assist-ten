@@ -17,7 +17,7 @@ from app.models.schemas import (
 from app.core.dependencies import get_current_user
 from app.core.security import check_superadmin
 
-router = APIRouter(prefix="/api/v1/superadmin", tags=["superadmin"])
+router = APIRouter(prefix="/superadmin", tags=["superadmin"])
 
 
 @router.post("/audit-logs", response_model=AuditLogResponse, status_code=201)
@@ -48,6 +48,16 @@ async def list_audit_logs(limit: int = Query(100, le=1000), db: AsyncSession = D
     return [AuditLogResponse.from_orm(l) for l in logs]
 
 
+@router.get("/audit-logs/{log_id}", response_model=AuditLogResponse)
+async def get_audit_log(log_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await check_superadmin(current_user)
+    result = await db.execute(select(AuditLog).where(AuditLog.log_id == log_id))
+    log = result.scalar_one_or_none()
+    if not log:
+        raise HTTPException(status_code=404, detail="Audit log not found")
+    return AuditLogResponse.from_orm(log)
+
+
 @router.post("/tenants", response_model=TenantResponse, status_code=201)
 async def create_tenant(payload: TenantCreate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> TenantResponse:
     await check_superadmin(current_user)
@@ -66,6 +76,38 @@ async def create_tenant(payload: TenantCreate, current_user=Depends(get_current_
     await db.commit()
     await db.refresh(tenant)
     return TenantResponse.from_orm(tenant)
+
+
+@router.get("/tenants", response_model=List[TenantResponse])
+async def list_tenants(limit: int = Query(100, le=1000), db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    await check_superadmin(current_user)
+    stmt = select(Tenant).order_by(desc(Tenant.created_at)).limit(limit)
+    result = await db.execute(stmt)
+    tenants = result.scalars().all()
+    return [TenantResponse.from_orm(t) for t in tenants]
+
+
+@router.get("/tenants/{tenant_id}", response_model=TenantResponse)
+async def get_tenant(tenant_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> TenantResponse:
+    await check_superadmin(current_user)
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return TenantResponse.from_orm(t)
+
+
+@router.delete("/tenants/{tenant_id}")
+async def delete_tenant(tenant_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await check_superadmin(current_user)
+    result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    # Soft-delete: deactivate tenant
+    t.is_active = False
+    await db.commit()
+    return {"message": "Tenant deactivated"}
 
 
 @router.patch("/tenants/{tenant_id}", response_model=TenantResponse)
@@ -102,6 +144,28 @@ async def create_incident(payload: SystemIncidentCreate, current_user=Depends(ge
     return SystemIncidentResponse.from_orm(inc)
 
 
+@router.get("/incidents", response_model=List[SystemIncidentResponse])
+async def list_incidents(limit: int = Query(100, le=1000), status: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    await check_superadmin(current_user)
+    stmt = select(SystemIncident)
+    if status:
+        stmt = stmt.where(SystemIncident.status == status)
+    stmt = stmt.order_by(desc(SystemIncident.detected_at)).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [SystemIncidentResponse.from_orm(r) for r in rows]
+
+
+@router.get("/incidents/{incident_id}", response_model=SystemIncidentResponse)
+async def get_incident(incident_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> SystemIncidentResponse:
+    await check_superadmin(current_user)
+    result = await db.execute(select(SystemIncident).where(SystemIncident.incident_id == incident_id))
+    inc = result.scalar_one_or_none()
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return SystemIncidentResponse.from_orm(inc)
+
+
 @router.patch("/incidents/{incident_id}", response_model=SystemIncidentResponse)
 async def update_incident(incident_id: str, payload: SystemIncidentUpdate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> SystemIncidentResponse:
     await check_superadmin(current_user)
@@ -135,6 +199,25 @@ async def record_metric(payload: SystemMetricCreate, current_user=Depends(get_cu
     return SystemMetricResponse.from_orm(metric)
 
 
+@router.get("/metrics", response_model=List[SystemMetricResponse])
+async def list_metrics(limit: int = Query(200, le=2000), db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    await check_superadmin(current_user)
+    stmt = select(SystemMetric).order_by(desc(SystemMetric.measured_at)).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [SystemMetricResponse.from_orm(r) for r in rows]
+
+
+@router.get("/metrics/{metric_id}", response_model=SystemMetricResponse)
+async def get_metric(metric_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> SystemMetricResponse:
+    await check_superadmin(current_user)
+    result = await db.execute(select(SystemMetric).where(SystemMetric.metric_id == metric_id))
+    m = result.scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404, detail="Metric not found")
+    return SystemMetricResponse.from_orm(m)
+
+
 @router.post("/flags", response_model=FeatureFlagResponse, status_code=201)
 async def create_flag(payload: FeatureFlagCreate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> FeatureFlagResponse:
     await check_superadmin(current_user)
@@ -166,3 +249,35 @@ async def update_flag(flag_id: str, payload: FeatureFlagUpdate, current_user=Dep
     await db.commit()
     await db.refresh(flag)
     return FeatureFlagResponse.from_orm(flag)
+
+
+@router.get("/flags", response_model=List[FeatureFlagResponse])
+async def list_flags(limit: int = Query(200, le=2000), db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    await check_superadmin(current_user)
+    stmt = select(FeatureFlag).order_by(desc(FeatureFlag.created_at)).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [FeatureFlagResponse.from_orm(r) for r in rows]
+
+
+@router.get("/flags/{flag_id}", response_model=FeatureFlagResponse)
+async def get_flag(flag_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> FeatureFlagResponse:
+    await check_superadmin(current_user)
+    result = await db.execute(select(FeatureFlag).where(FeatureFlag.flag_id == flag_id))
+    f = result.scalar_one_or_none()
+    if not f:
+        raise HTTPException(status_code=404, detail="Feature flag not found")
+    return FeatureFlagResponse.from_orm(f)
+
+
+@router.delete("/flags/{flag_id}")
+async def delete_flag(flag_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await check_superadmin(current_user)
+    result = await db.execute(select(FeatureFlag).where(FeatureFlag.flag_id == flag_id))
+    f = result.scalar_one_or_none()
+    if not f:
+        raise HTTPException(status_code=404, detail="Feature flag not found")
+    # Soft delete: disable
+    f.is_enabled = False
+    await db.commit()
+    return {"message": "Feature flag disabled"}

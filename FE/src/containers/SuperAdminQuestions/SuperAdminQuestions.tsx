@@ -1,6 +1,7 @@
 "use client";
-import React, { useMemo, useState } from "react";
-import { mcqQuestions } from "../../sampleData";
+import React, { useMemo, useState, useEffect } from "react";
+import { mcqQuestions as sampleMcqQuestions } from "../../sampleData";
+import { quizService } from "../../API/services";
 import "./SuperAdminQuestions.scss";
 
 type TemplateQuestion = {
@@ -37,7 +38,7 @@ type QuestionTemplate = {
   rubrics: RubricEntry[];
 };
 
-const questionTemplates: QuestionTemplate[] = [
+const initialQuestionTemplates: QuestionTemplate[] = [
   {
     id: "tpl-agentic-ai",
     role: "Technical",
@@ -53,7 +54,7 @@ const questionTemplates: QuestionTemplate[] = [
       { label: "Agentic Workflows", weight: 22, category: "Workflow" },
       { label: "Observability", weight: 18, category: "Reliability" },
     ],
-    questions: mcqQuestions.questions.map((question) => ({
+    questions: sampleMcqQuestions.questions.map((question) => ({
       id: question.question_id,
       text: question.question_text,
       focus: "Agentic Guardrails",
@@ -177,12 +178,17 @@ const questionTemplates: QuestionTemplate[] = [
   },
 ];
 
+// We will populate templates from the server when possible
+
 type FilterMode = "all" | "flagged";
 
 const SuperAdminQuestions = () => {
-  const [activeTemplateId, setActiveTemplateId] = useState(questionTemplates[0].id);
+  const [activeTemplateId, setActiveTemplateId] = useState(initialQuestionTemplates[0].id);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [questionTemplates, setQuestionTemplates] = useState<QuestionTemplate[]>(initialQuestionTemplates);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const activeTemplate =
     questionTemplates.find((template) => template.id === activeTemplateId) || questionTemplates[0];
@@ -208,6 +214,34 @@ const SuperAdminQuestions = () => {
   const handleRoleClick = (templateId: string) => {
     setActiveTemplateId(templateId);
   };
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        // Generate a sample question set from server for the first template
+        const qs = await quizService.generateMCQs('Agentic AI', 'Senior');
+        if (!mounted) return;
+        const generatedQuestions = qs.questions.map((q) => ({
+          id: q.question_id,
+          text: q.question_text,
+          focus: 'Agentic Guardrails',
+          complexity: q.question_id % 2 === 0 ? 'Medium' : 'High',
+          flag: null,
+        }));
+        // Replace questions for first template only, keep the rest as-is
+        setQuestionTemplates(prev => prev.map((t, idx) => idx === 0 ? { ...t, questions: generatedQuestions, generatedAt: new Date().toISOString() } : t));
+      } catch (err: any) {
+        console.error(err);
+        setError(err?.response?.data?.detail || 'Failed to load questions');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <div className="superadmin-questions">

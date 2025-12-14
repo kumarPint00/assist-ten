@@ -7,10 +7,26 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, validator
 import re
+from sqlalchemy import func, cast
+from sqlalchemy import String as SAString
 
 from app.core.dependencies import get_db, get_current_user, optional_user
 from app.db.models import Candidate, User, UploadedDocument
 from app.models.schemas import CandidateCreate, CandidateUpdate, CandidateResponse, FieldError, ValidationErrorResponse
+from app.db.models import AssessmentApplication
+from app.models.schemas import AssessmentApplicationResponse, UploadedDocumentResponse
+from app.models.schemas import CandidateNoteCreate, CandidateNoteResponse
+from app.db.models import CandidateNote, AssessmentToken
+from app.models.schemas import AssessmentInviteRequest, AssessmentInviteResponse
+from app.core.security import check_admin
+from app.models.schemas import CandidateSearchResponse
+from fastapi.responses import StreamingResponse
+import csv
+import io
+import secrets
+from app.core.email import send_email
+from config import get_settings
+from datetime import timedelta
 
 
 # Schema for CV data from frontend
@@ -256,6 +272,16 @@ async def update_candidate(
     )
 
 
+@router.patch("/{candidate_id}", response_model=CandidateResponse)
+async def patch_candidate(
+    candidate_id: str,
+    request: CandidateUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> CandidateResponse:
+    """Partial update for candidate profile (PATCH) - mirrors PUT behavior for now."""
+    return await update_candidate(candidate_id, request, db)
+
+
 @router.post("/{candidate_id}/files/{file_type}", response_model=CandidateResponse)
 async def link_uploaded_file(
     candidate_id: str,
@@ -387,6 +413,342 @@ async def override_candidate_skills(
         is_active=candidate.is_active,
         created_at=candidate.created_at,
         updated_at=candidate.updated_at,
+    )
+
+
+@router.get("/{candidate_id}/applications", response_model=List[AssessmentApplicationResponse])
+async def list_candidate_applications(candidate_id: str, page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=200), db: AsyncSession = Depends(get_db)) -> List[AssessmentApplicationResponse]:
+    stmt = select(AssessmentApplication).where(AssessmentApplication.candidate_id == candidate_id).order_by(desc(AssessmentApplication.applied_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [AssessmentApplicationResponse.from_orm(r) for r in rows]
+
+
+@router.post("/{candidate_id}/notes", response_model=CandidateNoteResponse, status_code=201)
+async def add_candidate_note(candidate_id: str, payload: CandidateNoteCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Ensure candidate exists
+    stmt = select(Candidate).where(Candidate.candidate_id == candidate_id)
+    result = await db.execute(stmt)
+    c = result.scalars().first()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    note = CandidateNote(
+        candidate_id=c.candidate_id,
+        author_id=current_user.id,
+        note_text=payload.note_text,
+        note_type=payload.note_type,
+        is_private=payload.is_private,
+    )
+    db.add(note)
+    await db.commit()
+    await db.refresh(note)
+    return CandidateNoteResponse(
+        id=note.id,
+        note_id=note.note_id,
+        candidate_id=note.candidate_id,
+        author_id=note.author_id,
+        note_text=note.note_text,
+        note_type=note.note_type,
+        is_private=note.is_private,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+    )
+
+
+@router.get("/{candidate_id}/notes", response_model=List[CandidateNoteResponse])
+async def list_candidate_notes(candidate_id: str, db: AsyncSession = Depends(get_db), current_user: Optional[User] = Depends(optional_user)):
+    stmt = select(CandidateNote).where(CandidateNote.candidate_id == candidate_id).order_by(desc(CandidateNote.created_at))
+    result = await db.execute(stmt)
+    notes = result.scalars().all()
+    # Filter private notes: only author or admin can see private notes
+    filtered = []
+    for n in notes:
+        if not n.is_private:
+            filtered.append(n)
+        elif current_user and (getattr(current_user, 'role', '') in ('admin','superadmin') or current_user.id == n.author_id):
+            filtered.append(n)
+    return [CandidateNoteResponse(
+        id=n.id,
+        note_id=n.note_id,
+        candidate_id=n.candidate_id,
+        author_id=n.author_id,
+        note_text=n.note_text,
+        note_type=n.note_type,
+        is_private=n.is_private,
+        created_at=n.created_at,
+        updated_at=n.updated_at,
+    ) for n in filtered]
+
+
+@router.patch("/notes/{note_id}", response_model=CandidateNoteResponse)
+async def update_candidate_note(note_id: str, payload: CandidateNoteCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CandidateNote).where(CandidateNote.note_id == note_id))
+    n = result.scalar_one_or_none()
+    if not n:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+    # Only author or admin can update
+    if current_user.id != n.author_id and getattr(current_user, 'role', '') not in ('admin','superadmin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update note")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(n, k, v)
+    await db.commit()
+    await db.refresh(n)
+    return CandidateNoteResponse.from_orm(n)
+
+
+@router.delete("/notes/{note_id}")
+async def delete_candidate_note(note_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CandidateNote).where(CandidateNote.note_id == note_id))
+    n = result.scalar_one_or_none()
+    if not n:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+    if current_user.id != n.author_id and getattr(current_user, 'role', '') not in ('admin','superadmin'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete note")
+    await db.delete(n)
+    await db.commit()
+    return {"message": "Note deleted"}
+
+
+@router.get("/search", response_model=CandidateSearchResponse)
+async def search_candidates(q: Optional[str] = None, skill: Optional[str] = None, experience_level: Optional[str] = None, is_active: Optional[bool] = None, page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=200), db: AsyncSession = Depends(get_db)) -> CandidateSearchResponse:
+    stmt = select(Candidate)
+    if q:
+        like_q = f"%{q}%"
+        stmt = stmt.where(func.lower(Candidate.full_name).ilike(like_q.lower()) | func.lower(Candidate.email).ilike(like_q.lower()))
+    if experience_level:
+        stmt = stmt.where(Candidate.experience_level == experience_level)
+    if is_active is not None:
+        stmt = stmt.where(Candidate.is_active == is_active)
+    if skill:
+        # Simple containment match against JSON rendered text
+        stmt = stmt.where(func.lower(cast(Candidate.skills, SAString)).like(f"%{skill.lower()}%"))
+
+    total_result = await db.execute(stmt)
+    total = len(total_result.scalars().all())
+
+    stmt = stmt.order_by(desc(Candidate.created_at)).limit(per_page).offset((page - 1) * per_page)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+
+    return CandidateSearchResponse(total=total, page=page, per_page=per_page, items=[CandidateResponse(
+        id=c.id,
+        candidate_id=c.candidate_id,
+        full_name=c.full_name,
+        email=c.email,
+        phone=c.phone,
+        experience_level=c.experience_level,
+        skills=c.skills,
+        availability_percentage=c.availability_percentage,
+        jd_file_id=c.jd_file_id,
+        cv_file_id=c.cv_file_id,
+        portfolio_file_id=c.portfolio_file_id,
+        is_active=c.is_active,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+    ) for c in rows])
+
+
+@router.patch("/{candidate_id}/assign")
+async def assign_candidate(candidate_id: str, payload: dict, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # payload: { recruiter_id: int }
+    if getattr(current_user, 'role', '') not in ("admin", "superadmin", "recruiter"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to assign candidate")
+    stmt = select(Candidate).where(Candidate.candidate_id == candidate_id)
+    result = await db.execute(stmt)
+    c = result.scalars().first()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+    recruiter_id = payload.get('recruiter_id')
+    c.assigned_recruiter_id = recruiter_id
+    c.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(c)
+    return CandidateResponse(
+        id=c.id,
+        candidate_id=c.candidate_id,
+        full_name=c.full_name,
+        email=c.email,
+        phone=c.phone,
+        experience_level=c.experience_level,
+        skills=c.skills,
+        availability_percentage=c.availability_percentage,
+        jd_file_id=c.jd_file_id,
+        cv_file_id=c.cv_file_id,
+        portfolio_file_id=c.portfolio_file_id,
+        is_active=c.is_active,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+    )
+
+
+@router.post("/bulk")
+async def bulk_candidates(payload: dict, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # payload: { action: 'deactivate'|'reactivate'|'export', candidate_ids: [...] }
+    if getattr(current_user, 'role', '') not in ("admin", "superadmin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    action = payload.get('action')
+    ids = payload.get('candidate_ids', [])
+    if action in ('deactivate', 'reactivate'):
+        stmt = select(Candidate).where(Candidate.candidate_id.in_(ids))
+        result = await db.execute(stmt)
+        rows = result.scalars().all()
+        for c in rows:
+            c.is_active = (action == 'reactivate')
+            c.updated_at = datetime.utcnow()
+        await db.commit()
+        return {"message": f"Action {action} applied to {len(rows)} candidates"}
+    elif action == 'export':
+        # Export CSV
+        stmt = select(Candidate).where(Candidate.candidate_id.in_(ids))
+        result = await db.execute(stmt)
+        rows = result.scalars().all()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['candidate_id', 'full_name', 'email', 'phone', 'experience_level', 'skills'])
+        for c in rows:
+            writer.writerow([c.candidate_id, c.full_name, c.email, c.phone, c.experience_level, str(c.skills)])
+        output.seek(0)
+        return StreamingResponse(io.BytesIO(output.getvalue().encode('utf-8')), media_type='text/csv', headers={ 'Content-Disposition': 'attachment; filename="candidates_export.csv"' })
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action")
+
+
+@router.post("/{candidate_id}/invite-assessment", response_model=AssessmentInviteResponse)
+async def invite_candidate_assessment(candidate_id: str, request: AssessmentInviteRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Invite a specific candidate to an assessment (wraps existing invite logic). Admin only."""
+    await check_admin(current_user)
+    # Find candidate
+    stmt = select(Candidate).where(Candidate.candidate_id == candidate_id)
+    result = await db.execute(stmt)
+    c = result.scalars().first()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    # Parse assessment_id from request.message JSON: {"assessment_id": "..."}
+    assessment_id = None
+    if request.message:
+        import json
+        try:
+            msgobj = json.loads(request.message)
+            assessment_id = msgobj.get('assessment_id')
+        except Exception:
+            if request.message.startswith('assessment_id:'):
+                assessment_id = request.message.split(':', 1)[1].strip()
+
+    if not assessment_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='assessment_id must be provided in request.message as JSON {"assessment_id": "..."}')
+
+    from app.db.models import Assessment
+    stmt2 = select(Assessment).where(Assessment.assessment_id == assessment_id)
+    res2 = await db.execute(stmt2)
+    assessment = res2.scalars().first()
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=request.expires_in_hours or 24)
+
+    token_record = AssessmentToken(
+        token=token,
+        assessment_id=assessment.id,
+        candidate_email=c.email,
+        expires_at=expires_at,
+        is_used=False,
+        created_by=current_user.id,
+    )
+    db.add(token_record)
+    await db.flush()
+
+    settings = get_settings()
+    host = getattr(settings, 'HOST', 'localhost')
+    port = getattr(settings, 'PORT', 8000)
+    scheme = 'https' if getattr(settings, 'S3_USE_SSL', False) else 'http'
+    invite_url = f"{scheme}://{host}:{port}/candidate-assessment/token/{token}"
+
+    subject = f"You're invited to take the assessment: {assessment.title}"
+    html_body = f"<p>Hello,</p><p>You have been invited to take the assessment '<strong>{assessment.title}</strong>'. Click the link below to start:</p><p><a href='{invite_url}'>Start Assessment</a></p>"
+    if request.message:
+        html_body += f"<p>{request.message}</p>"
+    html_body += f"<p>This link expires on {expires_at} UTC and is single-use.</p>"
+
+    try:
+        await send_email(to_email=c.email, subject=subject, html_body=html_body)
+    except Exception:
+        pass
+
+    await db.commit()
+    invites = [{'email': c.email, 'token': token, 'expires_at': expires_at}]
+    return AssessmentInviteResponse(success=True, invites_sent=invites, message="Invite generated and emailed if configured.")
+
+
+@router.get("/{candidate_id}/files", response_model=List[UploadedDocumentResponse])
+async def get_candidate_files(candidate_id: str, db: AsyncSession = Depends(get_db)) -> List[UploadedDocumentResponse]:
+    # Return any uploaded documents linked to the candidate (jd, cv, portfolio)
+    stmt = select(Candidate).where(Candidate.candidate_id == candidate_id)
+    result = await db.execute(stmt)
+    c = result.scalars().first()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    file_ids = [fid for fid in [c.jd_file_id, c.cv_file_id, c.portfolio_file_id] if fid]
+    if not file_ids:
+        return []
+
+    file_stmt = select(UploadedDocument).where(UploadedDocument.file_id.in_(file_ids))
+    file_res = await db.execute(file_stmt)
+    files = file_res.scalars().all()
+    return [UploadedDocumentResponse.from_orm(f) for f in files]
+
+
+@router.delete("/{candidate_id}")
+async def deactivate_candidate(candidate_id: str, current_user: Optional[User] = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    stmt = select(Candidate).where(Candidate.candidate_id == candidate_id)
+    result = await db.execute(stmt)
+    c = result.scalars().first()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    # Only admins or owner can deactivate
+    if current_user is None or getattr(current_user, 'role', '') not in ("admin", "superadmin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required to deactivate candidate")
+
+    c.is_active = False
+    c.updated_at = datetime.utcnow()
+    await db.commit()
+    return {"message": "Candidate deactivated"}
+
+
+@router.post("/{candidate_id}/reactivate")
+async def reactivate_candidate(candidate_id: str, current_user: Optional[User] = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    stmt = select(Candidate).where(Candidate.candidate_id == candidate_id)
+    result = await db.execute(stmt)
+    c = result.scalars().first()
+    if not c:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    if current_user is None or getattr(current_user, 'role', '') not in ("admin", "superadmin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required to reactivate candidate")
+
+    c.is_active = True
+    c.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(c)
+    return CandidateResponse(
+        id=c.id,
+        candidate_id=c.candidate_id,
+        full_name=c.full_name,
+        email=c.email,
+        phone=c.phone,
+        experience_level=c.experience_level,
+        skills=c.skills,
+        availability_percentage=c.availability_percentage,
+        jd_file_id=c.jd_file_id,
+        cv_file_id=c.cv_file_id,
+        portfolio_file_id=c.portfolio_file_id,
+        is_active=c.is_active,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
     )
 
 
