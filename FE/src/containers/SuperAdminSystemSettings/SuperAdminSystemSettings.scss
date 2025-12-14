@@ -1,0 +1,145 @@
+.superadmin-settings {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: #8b95a5;
+}
+
+.muted {
+  color: #7a8596;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+button {
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  background: #e1e5f7;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #1c5dff;
+  color: #fff;
+  border: none;
+}
+
+button.ghost {
+  border-color: #d0d7e4;
+  background: transparent;
+}
+
+.sections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+article {
+  background: #fff;
+  border-radius: 1.25rem;
+  border: 1px solid #dfe5ed;
+  padding: 1.25rem;
+}
+
+.section-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.8rem;
+}
+
+.toggle-list,
+.input-grid,
+.roles-panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.95rem;
+}
+
+.input-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.input-grid input {
+  border-radius: 0.75rem;
+  border: 1px solid #dfe5ed;
+  padding: 0.5rem 0.75rem;
+}
+
+.llm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.llm-panel div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.roles-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.roles-panel li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed #d0d7e4;
+}
+
+.roles-panel li:last-child {
+  border-bottom: none;
+}
+
+.permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.permissions span {
+  border-radius: 0.8rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid #dfe5ed;
+  font-size: 0.75rem;
+}
+
+.maintenance {
+  margin-top: 0.75rem;
+  font-weight: 600;
+}

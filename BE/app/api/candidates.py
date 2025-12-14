@@ -12,6 +12,25 @@ from app.core.dependencies import get_db, get_current_user, optional_user
 from app.db.models import Candidate, User, UploadedDocument
 from app.models.schemas import CandidateCreate, CandidateUpdate, CandidateResponse, FieldError, ValidationErrorResponse
 
+
+# Schema for CV data from frontend
+class CVExtractedDataRequest(BaseModel):
+    """Schema for CV extracted data from frontend."""
+    full_name: Optional[str] = None
+    email: str
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    current_role: Optional[str] = None
+    current_company: Optional[str] = None
+    experience_years: Optional[str] = None
+    education: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    skills: List[str] = Field(default_factory=list)
+    experience_level: Optional[str] = "mid"
+    availability_percentage: int = 100
+
 # Response schemas for new endpoints
 class EmailValidationResponse(BaseModel):
     email: str
@@ -243,6 +262,7 @@ async def link_uploaded_file(
     file_type: str,  # jd, cv, portfolio
     file_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
 ) -> CandidateResponse:
     """
     Link an uploaded document to candidate profile.
@@ -272,12 +292,21 @@ async def link_uploaded_file(
     # Verify file exists
     file_stmt = select(UploadedDocument).where(UploadedDocument.file_id == file_id)
     file_result = await db.execute(file_stmt)
-    if not file_result.scalars().first():
+    uploaded_doc = file_result.scalars().first()
+    if not uploaded_doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Uploaded file not found"
         )
     
+    # Authorization: only uploader or superadmin can link uploaded file to candidate
+    # uploaded_doc already retrieved above
+    if current_user and getattr(current_user, 'role', '') == 'admin':
+        if uploaded_doc.user_id and uploaded_doc.user_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    elif current_user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
     # Link file to candidate
     if file_type == "jd":
         candidate.jd_file_id = file_id
@@ -359,3 +388,123 @@ async def override_candidate_skills(
         created_at=candidate.created_at,
         updated_at=candidate.updated_at,
     )
+
+
+@router.post("/save-cv-data", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def save_cv_extracted_data(
+    request: CVExtractedDataRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(optional_user),
+) -> dict:
+    """
+    Save candidate information extracted from CV.
+    
+    This endpoint is called after CV text extraction to persist the extracted data.
+    If a candidate with the same email exists, it updates the existing record.
+    
+    Parameters:
+    - full_name: Extracted candidate name
+    - email: Candidate email (required)
+    - phone: Candidate phone number
+    - location: Candidate location
+    - current_role: Current job title
+    - current_company: Current company name
+    - experience_years: Years of experience (e.g., "5 years")
+    - education: Education details
+    - linkedin_url: LinkedIn profile URL
+    - github_url: GitHub profile URL
+    - portfolio_url: Portfolio website URL
+    - skills: List of extracted skills
+    - experience_level: Proficiency level (junior, mid, senior, etc.)
+    - availability_percentage: Availability percentage (0-100)
+    
+    Returns:
+    - candidate_id: Unique identifier for the candidate
+    - full_name, email, phone, etc.: All saved candidate information
+    """
+    try:
+        # Check if candidate with this email already exists
+        stmt = select(Candidate).where(Candidate.email == request.email)
+        result = await db.execute(stmt)
+        existing_candidate = result.scalars().first()
+        
+        if existing_candidate:
+            # Update existing candidate
+            existing_candidate.full_name = request.full_name or existing_candidate.full_name
+            existing_candidate.phone = request.phone or existing_candidate.phone
+            existing_candidate.location = request.location or existing_candidate.location
+            existing_candidate.current_role = request.current_role or existing_candidate.current_role
+            existing_candidate.education = request.education or existing_candidate.education
+            existing_candidate.linkedin_url = request.linkedin_url or existing_candidate.linkedin_url
+            existing_candidate.github_url = request.github_url or existing_candidate.github_url
+            existing_candidate.portfolio_url = request.portfolio_url or existing_candidate.portfolio_url
+            existing_candidate.experience_years = request.experience_years or existing_candidate.experience_years
+            
+            # Update skills
+            if request.skills:
+                skills_dict = {skill: "intermediate" for skill in request.skills}
+                existing_candidate.skills = skills_dict
+            
+            candidate = existing_candidate
+            action = "updated"
+        else:
+            # Create new candidate
+            candidate = Candidate(
+                full_name=request.full_name or "",
+                email=request.email,
+                phone=request.phone,
+                location=request.location,
+                current_role=request.current_role,
+                education=request.education,
+                linkedin_url=request.linkedin_url,
+                github_url=request.github_url,
+                portfolio_url=request.portfolio_url,
+                experience_years=request.experience_years,
+                experience_level=request.experience_level or "mid",
+                availability_percentage=min(100, max(0, request.availability_percentage)),
+                user_id=current_user.id if current_user else None,
+                is_active=True,
+            )
+            
+            # Add skills
+            if request.skills:
+                candidate.skills = {skill: "intermediate" for skill in request.skills}
+            
+            db.add(candidate)
+            action = "created"
+        
+        candidate.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(candidate)
+        
+        return {
+            "status": "success",
+            "message": f"Candidate {action} successfully",
+            "candidate_id": candidate.candidate_id,
+            "data": {
+                "candidate_id": candidate.candidate_id,
+                "full_name": candidate.full_name,
+                "email": candidate.email,
+                "phone": candidate.phone,
+                "location": candidate.location,
+                "current_role": candidate.current_role,
+                "education": candidate.education,
+                "linkedin_url": candidate.linkedin_url,
+                "github_url": candidate.github_url,
+                "portfolio_url": candidate.portfolio_url,
+                "experience_years": candidate.experience_years,
+                "experience_level": candidate.experience_level,
+                "availability_percentage": candidate.availability_percentage,
+                "skills": candidate.skills,
+                "is_active": candidate.is_active,
+                "created_at": candidate.created_at,
+                "updated_at": candidate.updated_at,
+            }
+        }
+    
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error saving candidate data: {str(e)}"
+        )

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
     
     # Application
-    APP_NAME: str = "AI Learning App"
+    APP_NAME: str = "Assist-Ten"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
@@ -99,7 +99,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = "noreply@learningapp.com"
-    SMTP_FROM_NAME: str = "AI Learning App"
+    SMTP_FROM_NAME: str = "Assist-Ten"
     
     # Rate Limiting
     RATE_LIMIT_LOGIN: str = "5/minute"
@@ -119,6 +119,8 @@ class Settings(BaseSettings):
     
     # AI/ML
     GROQ_API_KEY: str = ""
+    LLM_PROVIDER: str = "groq"  # "groq", "openai", "anthropic", "ollama"
+    LLM_API_KEY: str = ""  # API key for the chosen provider
     MAX_QUESTIONS_PER_TEST: int = 20
     QUESTION_GENERATION_TIMEOUT: int = 300  # 5 minutes
     

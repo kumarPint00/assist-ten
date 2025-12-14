@@ -1,0 +1,58 @@
+.candidate-sidebar {
+  width: 240px;
+  border-radius: 16px;
+  padding: 20px;
+  background: linear-gradient(180deg, #07080c 0%, #0b1116 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: #ffffff;
+  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
+  position: sticky;
+  top: 32px;
+  align-self: flex-start;
+}
+
+.candidate-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.candidate-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.candidate-nav-link {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  color: #cfcfcf;
+  text-decoration: none;
+  transition: 0.2s ease;
+}
+
+.candidate-nav-link:hover {
+  background: #11131a;
+  color: #ffffff;
+}
+
+.candidate-nav-link.active {
+  background: #13161b;
+  color: #ffffff;
+}
+
+.candidate-note {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 900px) {
+  .candidate-sidebar {
+    position: static;
+    width: 100%;
+    border-radius: 12px;
+  }
+}

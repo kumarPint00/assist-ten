@@ -164,6 +164,14 @@ const AssessmentViewContainer: React.FC = () => {
 
   const statusInfo = getStatusInfo();
   const skills = Object.entries(assessment.required_skills || {});
+  const groupedSkills = (
+    skills.reduce((acc: any, [skill, level]) => {
+      const mappedLevel = level === 'beginner' ? 'basic' : level === 'intermediate' ? 'intermediate' : 'advance';
+      if (!acc[mappedLevel]) acc[mappedLevel] = [];
+      acc[mappedLevel].push({ skill, level });
+      return acc;
+    }, {} as Record<string, any[]>)
+  ) as Record<'basic'|'intermediate'|'advance'|'strong', any[]>;
   const assessmentLink = `${window.location.origin}/candidate-assessment/${assessment.assessment_id}`;
 
   return (
@@ -300,13 +308,18 @@ const AssessmentViewContainer: React.FC = () => {
         {skills.length > 0 && (
           <div className="skills-section">
             <h3>Required Skills</h3>
-            <div className="skills-grid">
-              {skills.map(([skill, level]) => (
-                <div key={skill} className="skill-item">
-                  <span className="skill-name">{skill}</span>
-                  <span className={`skill-level level-${level.toLowerCase()}`}>
-                    {level}
-                  </span>
+            <div className="skills-grid grouped-skills-view">
+              {(['basic','intermediate','advance','strong'] as const).map((lvl) => (
+                <div key={lvl} className="view-skill-group">
+                  <h4 className="view-skill-title">{lvl.charAt(0).toUpperCase() + lvl.slice(1)}</h4>
+                  <div className="view-skill-list">
+                    {(groupedSkills[lvl] || []).map(({ skill, level }) => (
+                      <div key={skill} className="skill-item">
+                        <span className="skill-name">{skill}</span>
+                        <span className={`skill-level level-${(level || '').toLowerCase()}`}>{level}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

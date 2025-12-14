@@ -1,0 +1,16 @@
+/* Compact table styling for DataTable */
+.data-table-compact th,
+.data-table-compact td {
+  padding: 8px 12px !important;
+  font-size: 13px;
+  vertical-align: middle;
+}
+.data-table-compact thead th {
+  font-weight: 600;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
+}
+.data-table-compact tbody tr td {
+  border-bottom: 1px solid #eef0f2;
+}
+.data-table-compact .MuiCheckbox-root { padding: 0 4px }

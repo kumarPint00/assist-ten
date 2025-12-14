@@ -5,3 +5,4 @@ export { default as LazySection, lazyImport } from './LazySection';
 export { default as Logo } from './Logo';
 export { default as SectionTitle } from './SectionTitle';
 export { default as SkeletonPlaceholder } from './SkeletonPlaceholder';
+export { default as CircularGauge } from './CircularGauge';

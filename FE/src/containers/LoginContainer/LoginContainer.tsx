@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 import { useNavigate } from "../../hooks/navigation";
 import "./LoginContainer.scss";
 import { apiCall } from "../../API";
-import { allowedUsers, HTTP_POST, LOGIN } from "../../API/constants";
+import { allowedUsers, candidateUsers, HTTP_POST, LOGIN } from "../../API/constants";
 import Loader from "../../components/Loader";
 import { isAdmin } from "../../utils/adminUsers";
+import { userService } from "../../API/services";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 
 const LoginContainer = () => {
@@ -59,12 +60,59 @@ const LoginContainer = () => {
       return;
     }
 
-    await generateAuthToken();
+    const token = await generateAuthToken();
+    // Save user email locally
     localStorage.setItem("loggedInUser", values.email);
-
-    if (isAdmin(values.email)) {
-      navigate("/admin/dashboard");
-    } else {
+    const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
+    if (candidate) {
+      const query = new URLSearchParams({
+        name: candidate.name,
+        email: candidate.email,
+        role: candidate.role,
+        link: candidate.link,
+      }).toString();
+      navigate(`/candidate?${query}`);
+      return;
+    }
+    // Determine if user is admin via backend
+    try {
+      const user = await userService.getCurrentUser();
+      const role = user?.role || 'user';
+      if (role === 'superadmin') {
+        navigate('/admin/super');
+      } else if (role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
+        if (candidate) {
+          const query = new URLSearchParams({
+            name: candidate.name,
+            email: candidate.email,
+            role: candidate.role,
+            link: candidate.link,
+          }).toString();
+          navigate(`/candidate?${query}`);
+          return;
+        }
+        navigate('/app/profile-setup');
+      }
+    } catch (e) {
+      // Fallback to static check
+      if (isAdmin(values.email)) {
+        navigate("/admin/dashboard");
+        return;
+      }
+      const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
+      if (candidate) {
+        const query = new URLSearchParams({
+          name: candidate.name,
+          email: candidate.email,
+          role: candidate.role,
+          link: candidate.link,
+        }).toString();
+        navigate(`/candidate?${query}`);
+        return;
+      }
       navigate("/app/profile-setup");
     }
   };

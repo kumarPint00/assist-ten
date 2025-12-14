@@ -1,13 +1,14 @@
-import React, { useRef, useState } from "react";
+"use client";
+
+import React, { useRef, useState, useEffect } from "react";
 import { 
   FiX, FiUpload, FiCloud, FiAlertCircle, FiFileText, 
-  FiCheckCircle, FiEye, FiTrash2, FiDownload, FiZoomIn, FiZoomOut 
+  FiCheckCircle, FiEye, FiTrash2, FiDownload, FiZoomIn, FiZoomOut, FiRefreshCw 
 } from "react-icons/fi";
 import mammoth from "mammoth";
-import * as pdfjsLib from "pdfjs-dist";
 import "./FileUpload.scss";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+let pdfjsLib: any = null;
 
 interface Props {
   label: string;
@@ -35,6 +36,21 @@ const allowedTypes = [
 ];
 
 const FileUpload: React.FC<Props> = ({ label, onFileSelect, onTextExtracted, isRequired = false }) => {
+  // Initialize PDF.js on client side only
+  useEffect(() => {
+    const initPdfJs = async () => {
+      if (!pdfjsLib) {
+        try {
+          pdfjsLib = await import("pdfjs-dist");
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        } catch (err) {
+          console.error("Failed to load PDF.js:", err);
+        }
+      }
+    };
+    initPdfJs();
+  }, []);
+
   const [dragActive, setDragActive] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -161,9 +177,12 @@ const FileUpload: React.FC<Props> = ({ label, onFileSelect, onTextExtracted, isR
 
     console.log("[FileUpload] Extracted text length:", extractedText.length);
     console.log("[FileUpload] onTextExtracted callback exists:", !!onTextExtracted);
+    console.log("[FileUpload] Extracted text preview:", extractedText.substring(0, 300));
     if (onTextExtracted && extractedText) {
-      console.log("[FileUpload] Calling onTextExtracted callback");
+      console.log("[FileUpload] Calling onTextExtracted callback with", extractedText.length, "chars");
       onTextExtracted(extractedText);
+    } else {
+      console.log("[FileUpload] NOT calling callback - onTextExtracted:", !!onTextExtracted, "extractedText:", !!extractedText);
     }
 
     setTimeout(() => {
@@ -281,6 +300,10 @@ const FileUpload: React.FC<Props> = ({ label, onFileSelect, onTextExtracted, isR
               <FiUpload size={20} className="upload-icon" />
               <p className="upload-text">Drag & drop or click to browse</p>
               <p className="upload-hint">PDF, DOCX, TXT up to 10MB</p>
+              <div className="ai-badge">
+                <span className="ai-icon">🤖</span>
+                <span className="ai-text">FREE AI Extraction</span>
+              </div>
             </div>
           </div>
         )}
@@ -318,6 +341,21 @@ const FileUpload: React.FC<Props> = ({ label, onFileSelect, onTextExtracted, isR
                 title="Remove"
               >
                 <FiTrash2 size={14} />
+              </button>
+              <button
+                className="action-btn retry-extraction-btn"
+                onClick={() => {
+                  if (filePreview.textContent && onTextExtracted) {
+                    console.log('[FileUpload] Retry text extraction callback with', filePreview.textContent.length, 'chars');
+                    onTextExtracted(filePreview.textContent);
+                  } else {
+                    setError('No text available to retry extraction.');
+                  }
+                }}
+                title="Retry Auto-Fill"
+                aria-label="Retry Auto-Fill"
+              >
+                <FiRefreshCw size={14} />
               </button>
             </div>
           </div>

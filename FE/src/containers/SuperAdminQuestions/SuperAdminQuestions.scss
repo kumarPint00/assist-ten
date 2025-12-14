@@ -1,0 +1,271 @@
+.superadmin-questions {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.qa-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: #8b95a5;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+}
+
+.sidebar {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid #dfe5ed;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  h2 {
+    font-size: 1rem;
+    margin: 0;
+  }
+}
+
+.muted {
+  font-size: 0.75rem;
+  color: #7a8596;
+}
+
+.role-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.role-list li {
+  button {
+    width: 100%;
+    border: 0;
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    background: #f5f7fb;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+    flex-direction: column;
+  }
+
+  &.active button {
+    background: #1c5dff;
+    color: #fff;
+  }
+}
+
+.role-list li button span {
+  font-size: 0.82rem;
+  color: inherit;
+}
+
+.role-list li button div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.badge {
+  background: #101840;
+  color: #fff;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+
+.skills {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.skill-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pill {
+  background: #eef2ff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.main-panel {
+  background: #fff;
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  border: 1px solid #dfe5ed;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.templates {
+  display: grid;
+  gap: 1rem;
+}
+
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-row input {
+  flex: 1;
+  min-width: 220px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid #dfe5ed;
+  background: #fff;
+  font-size: 0.9rem;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.filter-controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.template-card {
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid #e3e9f3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.template-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-end;
+}
+
+.questions-rubrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.question-list,
+.rubric-panel {
+  border: 1px solid #e3e9f3;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.question-list header,
+.rubric-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.question-list ul,
+.rubric-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rubric-panel ul li p:nth-child(3) {
+  margin: 0;
+}
+
+.question-list li {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 0.9rem;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.question-list li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.question-list li.flagged {
+  border-color: #f97316;
+}
+
+.question-list small {
+  color: #7a8596;
+}
+
+.question-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+button {
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  background: #e1e5f7;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #1c5dff;
+  color: #fff;
+  border: 0;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: #d0d7e4;
+}

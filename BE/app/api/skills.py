@@ -5,7 +5,8 @@ from sqlalchemy.future import select
 from datetime import datetime
 from typing import List, Optional
 
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, optional_auth
+from app.db.models import User
 from app.db.models import Skill, Role, JobDescription, UploadedDocument
 from app.models.schemas import SkillResponse, RoleResponse
 
@@ -91,6 +92,7 @@ async def list_roles(
 async def get_jd_extraction_results(
     jd_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(optional_auth),
 ) -> dict:
     """
     Get extracted data from uploaded JD for auto-suggestion.
@@ -111,6 +113,11 @@ async def get_jd_extraction_results(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job description not found"
         )
+
+    # Authorization: if admin (not superadmin), ensure they own the JD
+    if current_user is not None and getattr(current_user, 'role', '') == 'admin':
+        if jd.uploaded_by != current_user.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job description not found")
     
     # Extract skills and roles from the JD title/description
     extracted_skills = extract_skills_from_text(jd.description or "")
@@ -133,6 +140,7 @@ async def get_jd_extraction_results(
 async def extract_skills_from_uploaded_file(
     file_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(optional_auth),
 ) -> dict:
     """
     Extract skills and roles from an uploaded document (JD, Requirements, Specifications).
@@ -163,6 +171,13 @@ async def extract_skills_from_uploaded_file(
             detail=f"Cannot extract skills from {doc.document_category} documents. Supported: jd, requirements, specifications"
         )
     
+    # Authorization: only uploader or superadmin can extract
+    if current_user:
+        if doc.user_id and doc.user_id != current_user.id and getattr(current_user, 'role', '') != 'superadmin':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
     # Extract text and skills
     extracted_text = doc.extracted_text or doc.extraction_preview or ""
     extracted_skills = extract_skills_from_text(extracted_text)

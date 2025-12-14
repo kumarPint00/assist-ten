@@ -20,6 +20,8 @@ class UserResponse(BaseModel):
     full_name: str | None
     is_active: bool
     is_verified: bool
+    is_admin: bool = False
+    role: str = "user"
     
     class Config:
         from_attributes = True
@@ -35,7 +37,12 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ) -> UserResponse:
     """Get current user information."""
-    return UserResponse.from_orm(current_user)
+    # determine admin status
+    from app.core.security import is_admin_user
+    user_resp = UserResponse.from_orm(current_user)
+    user_resp.is_admin = is_admin_user(current_user.email)
+    user_resp.role = getattr(current_user, 'role', 'user')
+    return user_resp
 
 
 @router.put("/users/me", response_model=UserResponse)

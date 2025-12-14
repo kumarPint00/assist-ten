@@ -1,4 +1,10 @@
 """Main FastAPI application with production setup."""
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
@@ -29,6 +35,7 @@ from app.api.candidates import router as candidates_router
 from app.api.assessments import router as assessments_router
 from app.api.skills import router as skills_router
 from app.api.admin_skill_extraction import router as admin_skill_extraction_router
+from app.api.llm_extraction import router as llm_extraction_router
 
 
 # Import for recommended courses if it exists
@@ -164,6 +171,10 @@ Most endpoints require JWT authentication. Use the `/api/v1/auth/login` endpoint
         {
             "name": "Admin",
             "description": "Administrative operations (Admin role required)"
+        },
+        {
+            "name": "LLM Extraction",
+            "description": "AI-powered CV and JD extraction using Claude/GPT-4"
         },
         {
             "name": "Recommended Courses",
@@ -312,6 +323,7 @@ app.include_router(questionset_tests_router, prefix=settings.API_V1_PREFIX, tags
 app.include_router(upload_router, prefix=settings.API_V1_PREFIX, tags=["Job Descriptions"])
 app.include_router(mcq_generation_router, prefix=settings.API_V1_PREFIX, tags=["Questions"])
 app.include_router(subskill_router, prefix=settings.API_V1_PREFIX, tags=["Subskills"])
+app.include_router(llm_extraction_router, tags=["LLM Extraction"])
 app.include_router(candidates_router, tags=["Candidates"])
 app.include_router(assessments_router, tags=["Assessments"])
 app.include_router(skills_router, tags=["skills-roles"])

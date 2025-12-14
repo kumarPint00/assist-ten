@@ -1,0 +1,6 @@
+.superadmin-sidebar { width: 220px; height: 100vh; padding: 14px; background: linear-gradient(180deg,#0b0f12 0%, #0c1116 100%); color: #e6eef2; display:flex; flex-direction:column }
+.sidebar-logo { font-weight:700; font-size:18px; margin-bottom:12px }
+.superadmin-nav { display:flex; flex-direction:column; gap:8px }
+.admin-link { color: #dfe6ea; padding:10px 12px; border-radius:6px }
+.admin-link:hover { background:#121419; color:#fff }
+.admin-link.active { background:#16181b; color: #fff }

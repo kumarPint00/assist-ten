@@ -30,7 +30,13 @@ human_message = HumanMessagePromptTemplate.from_template(
 
 chat_prompt = ChatPromptTemplate.from_messages([system_message, human_message])
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
+def get_groq_llm():
+    """Get Groq LLM instance (created lazily to avoid import-time issues)"""
+    from config import GROQ_API_KEY
+    return ChatGroq(model="llama-3.3-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
+
+# Remove the global llm instance
+# llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
 
 def parse_mcqs_from_response(response_text: str):
     cleaned = re.sub(r'``````', '', response_text.strip())
@@ -50,6 +56,7 @@ def parse_mcqs_from_response(response_text: str):
 def generate_mcqs_for_topic(topic: str, level: str, subtopics: list = None):
     subtopics_str = ", ".join(subtopics) if subtopics else ""
     prompt_messages = chat_prompt.format_messages(topic=topic, subtopics=subtopics_str, level=level)
+    llm = get_groq_llm()
     response = llm.invoke(prompt_messages)
     print("Raw LLM Response:")
     print(response.content)

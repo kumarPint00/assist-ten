@@ -532,6 +532,20 @@
         }
       }
     }
+    &.grouped-skills-view {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+
+      .view-skill-group {
+        border: 1px dashed #e6eefc;
+        padding: 12px;
+        border-radius: 8px;
+        background: #fff;
+      }
+      .view-skill-title { margin: 0 0 8px 0; font-weight: 700; font-size: 13px; }
+      .view-skill-list { display: flex; flex-direction: column; gap: 6px; }
+    }
   }
 }
 

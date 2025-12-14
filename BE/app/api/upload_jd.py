@@ -7,7 +7,7 @@ import uuid
 
 from app.utils.generate_questions import generate_mcqs_for_topic
 from app.utils.text_extract import extract_text
-from app.core.dependencies import get_db, optional_user
+from app.core.dependencies import get_db, optional_user, optional_auth
 from app.core.storage import get_s3_service
 from app.db.models import User, JobDescription, UploadedDocument, Candidate
 from app.models.schemas import UploadedDocumentResponse
@@ -204,6 +204,7 @@ async def upload_document(
 async def get_document(
     file_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(optional_auth),
 ) -> UploadedDocumentResponse:
     """Get document metadata by file ID."""
     stmt = select(UploadedDocument).where(UploadedDocument.file_id == file_id)
@@ -215,6 +216,13 @@ async def get_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found"
         )
+    # Authorization: only the uploader (document.user_id) or superadmin can access
+    if current_user:
+        if document.user_id is not None and document.user_id != current_user.id and getattr(current_user, 'role', '') != 'superadmin':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    else:
+        # No auth provided: deny access
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     
     return UploadedDocumentResponse(
         id=document.id,
@@ -235,6 +243,7 @@ async def get_document(
 async def download_document(
     file_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(optional_auth),
 ):
     """Download document from storage."""
     stmt = select(UploadedDocument).where(UploadedDocument.file_id == file_id)
@@ -246,6 +255,12 @@ async def download_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found"
         )
+    # Authorization: only uploader or superadmin can download
+    if current_user:
+        if document.user_id is not None and document.user_id != current_user.id and getattr(current_user, 'role', '') != 'superadmin':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     
     s3_service = get_s3_service()
     try:

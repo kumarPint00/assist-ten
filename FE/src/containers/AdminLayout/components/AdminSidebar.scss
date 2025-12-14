@@ -1,7 +1,7 @@
 .admin-sidebar {
   width: 240px;
   height: 100vh;
-  background: #1e1e2f;
+  background: linear-gradient(180deg,#07080c 0%, #0b1116 100%);
   padding: 20px;
   color: white;
   display: flex;
@@ -14,10 +14,24 @@
   margin-bottom: 30px;
 }
 
+
 .admin-nav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .admin-link {
@@ -29,11 +43,11 @@
 }
 
 .admin-link:hover {
-  background: #2a2a42;
+  background: #11131a;
   color: white;
 }
 
 .admin-link.active {
-  background: #4a4a68;
+  background: #13161b;
   color: white;
 }

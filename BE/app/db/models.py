@@ -18,6 +18,7 @@ class User(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -38,9 +39,12 @@ class User(Base, TimestampMixin):
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
+    admin_settings: Mapped[Optional["AdminSettings"]] = relationship(
+        "AdminSettings", back_populates="user", uselist=False
+    )
     
     def __repr__(self) -> str:
-        return f"<User(id={self.id}, email='{self.email}')>"
+        return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"
 
 
 class RefreshToken(Base, TimestampMixin):
@@ -504,6 +508,38 @@ class UploadedDocument(Base, TimestampMixin):
         return f"<UploadedDocument(id={self.id}, file_id='{self.file_id}', doc_type='{self.document_category}')>"
 
 
+class SkillMatch(Base, TimestampMixin):
+    """Store skill match runs performed by admins for auditing and history."""
+
+    __tablename__ = "skill_matches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    match_id: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False, default=lambda: f"skillmatch_{uuid.uuid4().hex[:12]}")
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    jd_file_id: Mapped[int] = mapped_column(Integer, ForeignKey("uploaded_documents.id"), nullable=True)
+    cv_file_id: Mapped[int] = mapped_column(Integer, ForeignKey("uploaded_documents.id"), nullable=True)
+    match_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    matched_skills: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    missing_skills: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    extra_skills: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    summary: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    llm_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    jd_file: Mapped[Optional["UploadedDocument"]] = relationship("UploadedDocument", foreign_keys=[jd_file_id])
+    cv_file: Mapped[Optional["UploadedDocument"]] = relationship("UploadedDocument", foreign_keys=[cv_file_id])
+
+    __table_args__ = (
+        Index("ix_skill_matches_user_id", "user_id"),
+        Index("ix_skill_matches_created_at", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<SkillMatch(id={self.id}, match_id='{self.match_id}', score={self.match_score})>"
+
+
 class AssessmentToken(Base, TimestampMixin):
     """Assessment access token for candidate invitation links."""
 
@@ -581,3 +617,50 @@ class Role(Base, TimestampMixin):
     
     def __repr__(self) -> str:
         return f"<Role(id={self.id}, name='{self.name}', department='{self.department}')>"
+
+
+class ExtractionLog(Base, TimestampMixin):
+    """Log of LLM extractions for auditing and debugging."""
+    
+    __tablename__ = "extraction_logs"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), index=True, nullable=True)
+    
+    # Extraction details
+    extraction_type: Mapped[str] = mapped_column(String(50), index=True, nullable=False)  # "cv_llm", "jd_llm"
+    input_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # "success", "failed"
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Provider info
+    provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # "openai", "anthropic"
+    
+    __table_args__ = (
+        Index("ix_extraction_logs_user", "user_id"),
+        Index("ix_extraction_logs_type", "extraction_type"),
+        Index("ix_extraction_logs_created", "created_at"),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<ExtractionLog(id={self.id}, type='{self.extraction_type}', status='{self.status}')>"
+
+
+class AdminSettings(Base, TimestampMixin):
+    """Admin settings model for storing user-specific admin configurations."""
+    
+    __tablename__ = "admin_settings"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    
+    # Store settings as JSON for flexibility
+    settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="admin_settings")
+    
+    def __repr__(self) -> str:
+        return f"<AdminSettings(id={self.id}, user_id={self.user_id})>"

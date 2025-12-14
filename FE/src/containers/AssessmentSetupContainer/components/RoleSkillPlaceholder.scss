@@ -62,6 +62,17 @@
       transform: scale(0.98);
     }
   }
+
+  .retry-btn {
+    margin-left: 12px;
+    padding: 4px 12px;
+    background: #eafaf1;
+    border: 1px solid #c7f0d4;
+    color: #0b7a4a;
+    &:hover {
+      background: #ddf3e6;
+    }
+  }
 }
 
 /* Form label styling */
@@ -198,10 +209,27 @@
 
 .skills-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 8px;
   min-height: 32px;
+}
+
+.skill-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skill-group-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+.skill-group-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .skill-chip {
@@ -251,10 +279,26 @@
     }
   }
 
+        &.level-strong {
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+        }
+        &.level-intermediate {
+          background: linear-gradient(135deg, #f59e0b, #f97316);
+          color: white;
+        }
+        &.level-basic {
+          background: linear-gradient(135deg, #94a3b8, #64748b);
+          color: white;
+        }
   &.manual {
     background: #eef3ff;
     border-color: #cbd7ff;
     color: #0f4c9f;
+  }
+  &.level-advance {
+    background: linear-gradient(135deg, #06b6d4, #0891b2);
+    color: white;
   }
 
   .match-star {
@@ -308,6 +352,16 @@
   border-radius: 8px;
   color: #7a5c00;
   font-size: 13px;
+  
+      .skill-level {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #fff;
+      }
   font-weight: 600;
   margin-bottom: 12px;
 
@@ -317,37 +371,7 @@
   }
 }
 
-.skills-collapse-section {
-  margin-top: 12px;
-
-  .collapse-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: #f8f9fa;
-    border: 1px solid #e6eefc;
-    border-radius: 6px;
-    color: #495057;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 100%;
-    justify-content: center;
-
-    &:hover {
-      background: #e9ecef;
-      border-color: #d4d8e3;
-    }
-  }
-
-  .collapsed-skills {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed #e6eefc;
-  }
-}
+/* collapsed section removed - grouped skills are always displayed */
 
 /* ===============================
    EXTRACTED SKILLS PREVIEW

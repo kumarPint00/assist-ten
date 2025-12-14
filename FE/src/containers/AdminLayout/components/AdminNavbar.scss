@@ -1,34 +1,70 @@
 .admin-navbar {
-  height: 60px;
-  background: white;
-  border-bottom: 1px solid #e2e2e2;
-  padding: 0 20px;
+  height: 52px;
+  background: rgba(255,255,255,0.95);
+  padding: 0 14px;
+  display: flex;
+  justify-content: space-between;
+  box-shadow: 0 1px 8px rgba(15,23,42,0.03);
+  backdrop-filter: blur(6px);
+}
 
+.admin-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg,#f3f4f6,#eef2f7);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
 }
 
 .admin-title {
-  font-size: 20px;
-  font-weight: 500;
-  color: #333;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: #0b1320; /* darker title color for better contrast */
 }
 
 .admin-icons {
   display: flex;
-  gap: 18px;
+  gap: 8px;
   align-items: center;
 }
 
+.llm-badge {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 8px;
+  font-size: 13px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: rgba(0,0,0,0.02);
+}
+
+.llm-badge .llm-text { font-weight: 700; color: #0f172a; }
+.llm-badge .llm-status { font-weight: 600; color: #065f46; font-size: 12px; padding-left: 6px; }
+
 .nav-icon {
   cursor: pointer;
-  color: #444;
-  transition: 0.2s;
+  color: #6b7280;
+  transition: color 0.15s linear, transform 0.12s ease;
 }
 
 .nav-icon:hover {
-  color: #111;
+  color: #111827;
+  transform: translateY(-1px);
 }
 /* Make user icon clickable */
 .user-icon-wrapper {
@@ -54,4 +90,20 @@
 
 .MuiMenuItem-root:hover {
   background: #f3f3f3 !important;
+}
+
+/* Notification dot */
+.nav-notification {
+  position: relative;
+  display: inline-flex;
+}
+.nav-notification .notif-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid white;
 }

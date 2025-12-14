@@ -28,6 +28,7 @@ router = APIRouter(prefix="/api/v1/assessments", tags=["assessments"])
 @router.get("", response_model=List[AssessmentResponse])
 async def list_assessments(
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(optional_auth),
     is_published: Optional[bool] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
@@ -45,6 +46,9 @@ async def list_assessments(
     query = select(Assessment).where(Assessment.is_active == True)
     
     if show_all:
+        # show_all only allowed for superadmin
+        if not (current_user and getattr(current_user, 'role', '') == 'superadmin'):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only superadmin can view all resources")
         if is_published is not None:
             query = query.where(Assessment.is_published == is_published)
     elif is_published is not None:
@@ -52,6 +56,9 @@ async def list_assessments(
     else:
         query = query.where(Assessment.is_published == True)
     
+    # If current user is admin (non-superadmin), only show their created assessments
+    if current_user and getattr(current_user, 'role', '') == 'admin':
+        query = query.where(Assessment.created_by == current_user.id)
     query = query.order_by(desc(Assessment.created_at))
     query = query.offset(skip).limit(limit)
     
@@ -114,23 +121,28 @@ async def get_assessment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assessment not found"
         )
-    
-    is_admin = False
-    if current_user and hasattr(current_user, 'email'):
-        is_admin = is_admin_user(current_user.email)
-    
-    if not is_admin:
-        if not assessment.is_published:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="This assessment is not available yet. Please contact the administrator."
-            )
-        
-        if not assessment.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="This assessment is no longer active."
-            )
+
+    # Determine admin role
+    is_admin_role = False
+    if current_user and hasattr(current_user, 'role'):
+        is_admin_role = current_user.role in ("admin", "superadmin")
+
+    # Non-admin users can only access published assessments
+    if not is_admin_role and not assessment.is_published:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This assessment is not available yet. Please contact the administrator."
+        )
+
+    if not assessment.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This assessment is no longer active."
+        )
+
+    # If admin role and not superadmin, only allow access to assessments created by this admin
+    if current_user and getattr(current_user, 'role', '') == "admin" and assessment.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
     
     response = {
         "id": assessment.id,
@@ -532,11 +544,11 @@ async def get_assessment_by_token(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment not found")
 
     # If assessment not published and user isn't admin, hide
-    is_admin = False
-    if current_user and hasattr(current_user, 'email'):
-        is_admin = is_admin_user(current_user.email)
+    is_admin_role = False
+    if current_user and hasattr(current_user, 'role'):
+        is_admin_role = current_user.role in ("admin", "superadmin")
 
-    if not is_admin:
+    if not is_admin_role:
         if not assessment.is_published or not assessment.is_active:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assessment is not available")
 

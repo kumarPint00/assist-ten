@@ -1,0 +1,77 @@
+.assessment-page {
+  --bg: #f6f8fb;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --text: #0f172a;
+  --primary: #2563EB;
+  --border: #e6eefc;
+  --shadow: 0 6px 18px rgba(16, 24, 40, 0.08);
+}
+
+.admin-skill-checker {
+  background: var(--card, white);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow, 0 6px 18px rgba(16, 24, 40, 0.08));
+}
+
+/* Card base styling to match assessment page */
+.card {
+  background: var(--card, #fff);
+  border-radius: 12px;
+  padding: 18px;
+  border: 1px solid var(--border, #e6eefc);
+  box-shadow: var(--shadow, 0 6px 18px rgba(16, 24, 40, 0.08));
+}
+
+.card-header h2 { margin: 0 0 6px 0; font-size: 20px; font-weight: 700; color: var(--text, #0f172a); }
+.card-header .hint { margin-top: 4px; color: var(--muted, #6b7280); font-size: 13px; }
+
+.btn { padding: 10px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 8px; }
+.btn.primary { background: var(--primary); color: white; box-shadow: 0 6px 12px rgba(37, 99, 235, 0.12); }
+.btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+.btn-light { background: transparent; color: var(--text); border: 1px solid #e6eefc; }
+
+.upload-grid { // reuse assessment grid responsive look
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 12px 0 18px 0;
+}
+
+.upload-box {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 2px dashed #e6e9ef;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #475569;
+}
+
+.upload-box input[type="file"] {
+  display: none;
+}
+
+.upload-box svg { color: #667eea; }
+
+.card-actions { display: flex; gap: 12px; margin-top: 14px; align-items: center; }
+.checkbox-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--muted, #475569); }
+
+.result { margin-top: 12px; }
+.score { font-size: 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+.score strong { display: flex; align-items: center; gap: 12px; }
+/* remove old badge styles as we now use CircularGauge */
+.match-lists { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.match-lists .list { background: #f8fafc; padding: 12px; border-radius: 8px; }
+
+.error { color: #b91c1c; background: #fff1f2; padding: 10px; border-radius: 8px; }
+
+.history { margin-top: 16px; }
+.history-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.history-item { padding: 10px; border: 1px solid #e6e9ef; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.history-meta { display: flex; gap: 12px; align-items: center; color: #374151; }
+.history-actions { display: flex; gap: 8px; }
+.history-detail { margin-top: 8px; background: #f8fafc; padding: 10px; border-radius: 8px; font-size: 13px; }

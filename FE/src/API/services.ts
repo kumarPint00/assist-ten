@@ -54,6 +54,16 @@ export interface UserProfile {
   level: string;
 }
 
+export interface CurrentUser {
+  id: number;
+  email: string;
+  full_name?: string;
+  is_active: boolean;
+  is_verified: boolean;
+  is_admin?: boolean;
+  role?: string;
+}
+
 export interface Assessment {
   id: number;
   assessment_id: string;
@@ -100,6 +110,19 @@ export interface Candidate {
   skills: Record<string, string>;
   availability_percentage: number;
   created_at: string;
+}
+
+export interface AdminDashboardActivityItem {
+  application_id: string;
+  candidate_name: string;
+  candidate_email: string;
+  job_title: string;
+  assessment_title: string;
+  status: string;
+  score_percentage?: number | null;
+  updated_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
 }
 
 export interface CandidateCreateRequest {
@@ -170,6 +193,11 @@ export interface SkillExtractionResponse {
   skills: string[];
   experience_level?: string;
   extracted_text?: string;
+  // Optional fields returned by server when using LLM or enhanced extraction
+  classified_skills?: { skill_name: string; proficiency_level?: string; category?: string }[];
+  jd_skills?: string[];
+  skill_durations?: Record<string, string>;
+  documents?: { extraction_preview?: string }[];
 }
 
 export interface RecommendedCourse {
@@ -201,6 +229,13 @@ export const authService = {
     localStorage.removeItem("loggedInUser");
     localStorage.removeItem("profileCompleted");
     localStorage.removeItem("userProfile");
+  },
+};
+
+export const userService = {
+  getCurrentUser: async (): Promise<any> => {
+    const response = await apiClient.get(`/users/me`);
+    return response.data;
   },
 };
 
@@ -272,6 +307,29 @@ export const candidateService = {
   listCandidates: async (skip = 0, limit = 50): Promise<Candidate[]> => {
     const response = await apiClient.get<Candidate[]>(
       `/candidates?skip=${skip}&limit=${limit}`
+    );
+    return response.data;
+  },
+
+  saveCVData: async (cvData: {
+    full_name?: string;
+    email: string;
+    phone?: string;
+    location?: string;
+    current_role?: string;
+    current_company?: string;
+    experience_years?: string;
+    education?: string;
+    linkedin_url?: string;
+    github_url?: string;
+    portfolio_url?: string;
+    skills: string[];
+    experience_level?: string;
+    availability_percentage?: number;
+  }): Promise<{ status: string; candidate_id: string; data: any }> => {
+    const response = await apiClient.post<{ status: string; candidate_id: string; data: any }>(
+      "/candidates/save-cv-data",
+      cvData
     );
     return response.data;
   },
@@ -356,15 +414,36 @@ export const uploadService = {
     _jdFile?: File,
     _requirementFile?: File,
     _clientDocFile?: File
+  , useLLM: boolean = true
   ): Promise<SkillExtractionResponse> => {
     const formData = new FormData();
     formData.append("file", resumeFile);
 
     const response = await apiClient.post<SkillExtractionResponse>(
-      "/admin/extract-skills?doc_type=cv",
+      `/admin/extract-skills?doc_type=cv&use_llm=${useLLM ? 'true' : 'false'}`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" } }
     );
+    return response.data;
+  },
+
+  skillMatch: async (
+    cvFile: File,
+    jdFile: File,
+    useLLM: boolean = true
+  ): Promise<{ success?: boolean; match_score?: number; matched_skills?: any[]; missing_skills?: string[]; extra_skills?: string[]; details?: any }> => {
+    const formData = new FormData();
+    formData.append("cv", cvFile);
+    formData.append("jd", jdFile);
+    const response = await apiClient.post(`/admin/skill-match?use_llm=${useLLM ? 'true' : 'false'}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+    return response.data;
+  },
+  getSkillMatches: async (skip = 0, limit = 50): Promise<any[]> => {
+    const response = await apiClient.get(`/admin/skill-matches?skip=${skip}&limit=${limit}`);
+    return response.data;
+  },
+  getSkillMatch: async (matchId: string): Promise<any> => {
+    const response = await apiClient.get(`/admin/skill-matches/${matchId}`);
     return response.data;
   },
 };
@@ -413,13 +492,38 @@ export const dashboardService = {
     return response.data;
   },
 
-  getAdminStats: async (): Promise<{
-    total_assessments: number;
-    total_candidates: number;
-    pending_assessments: number;
-    completed_assessments: number;
-  }> => {
-    const response = await apiClient.get("/admin/dashboard");
+  getAdminActivity: async (): Promise<AdminDashboardActivityItem[]> => {
+    const response = await apiClient.get<AdminDashboardActivityItem[]>("/admin/dashboard/activity");
+    return response.data;
+  },
+};
+
+export const adminService = {
+  getSystemStats: async (): Promise<any> => {
+    const response = await apiClient.get(`/admin/stats`);
+    return response.data;
+  },
+  listAdmins: async (): Promise<any[]> => {
+    const response = await apiClient.get(`/admin/users`);
+    return response.data;
+  },
+  createAdminUser: async (email: string, full_name?: string, role?: string) : Promise<any> => {
+    const response = await apiClient.post(`/admin/users`, { email, full_name, role });
+    return response.data;
+  },
+  updateUserRole: async (userId: string | number, role: string): Promise<any> => {
+    const response = await apiClient.put(`/admin/users/${userId}/role`, { role });
+    return response.data;
+  }
+};
+
+export const adminSettingsAPI = {
+  getSettings: async (): Promise<{ settings: any }> => {
+    const response = await apiClient.get("/admin/settings");
+    return response.data;
+  },
+  updateSettings: async (settings: any): Promise<{ settings: any }> => {
+    const response = await apiClient.put("/admin/settings", { settings });
     return response.data;
   },
 };

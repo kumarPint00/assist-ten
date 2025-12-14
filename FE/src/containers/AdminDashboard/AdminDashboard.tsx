@@ -1,14 +1,10 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../../hooks/navigation";
-import { 
-  FiPlus, FiSearch, FiFilter, FiEye, FiEdit2, FiTrash2, 
-  FiAlertCircle, FiX, FiCheckCircle, FiClock, FiActivity, FiRefreshCw,
-  FiUsers, FiTrendingUp, FiCalendar
-} from "react-icons/fi";
+import { FiPlus, FiRefreshCw, FiAlertCircle, FiUsers, FiTrendingUp, FiCalendar, FiActivity, FiCheckCircle } from "react-icons/fi";
 import Toast from "../../components/Toast/Toast";
-import { assessmentService } from "../../API/services";
-import type { Assessment } from "../../API/services";
+import { assessmentService, dashboardService, userService } from "../../API/services";
+import type { Assessment, AdminDashboardActivityItem } from "../../API/services";
 import "./AdminDashboard.scss";
 
 interface DashboardStats {
@@ -39,10 +35,100 @@ interface ToastMessage {
   message: string;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Screening",
+  active: "Scheduled",
+  in_progress: "Interviewing",
+  completed: "Completed",
+  expired: "Closed",
+  shortlisted: "Shortlisted",
+  rejected: "Rejected",
+};
+
+interface RecentActivityRow {
+  applicationId: string;
+  candidate: string;
+  job: string;
+  statusLabel: string;
+  statusClass: string;
+  score: number;
+  scoreLabel: string;
+  updatedAt: number;
+}
+
+const formatStatusLabel = (status: string): string => {
+  const raw = STATUS_LABELS[status] ?? status.replace(/_/g, " ");
+  return raw.replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const buildStatusClass = (label: string): string =>
+  label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+interface AlertEntry {
+  candidate: string;
+  job: string;
+  reason: string;
+  timestamp: string;
+}
+
+const FLAGGED_ALERTS: AlertEntry[] = [
+  { candidate: "Maya Patel", job: "AI Research Engineer", reason: "Multiple tab/context switches", timestamp: "09:42 AM" },
+  { candidate: "Jordan Miles", job: "Product Data Scientist", reason: "Camera disconnected during tech", timestamp: "08:57 AM" },
+  { candidate: "Rhea Singh", job: "Platform Engineer", reason: "Background noise spike while answering", timestamp: "Yesterday" },
+];
+
+const extractCandidateName = (description?: string, title?: string): string => {
+  if (description) {
+    const match = description.match(/candidate\s+(.+?)(?:\s*$|,)/i);
+    if (match) return match[1].trim();
+  }
+  if (title && !title.toLowerCase().includes("assessment")) {
+    return title;
+  }
+  return "Candidate";
+};
+
+const getAssessmentStatus = (a: Assessment): DisplayAssessment["status"] => {
+  if (a.is_expired) {
+    return "expired";
+  }
+  if (!a.is_published) {
+    return "pending";
+  }
+  return a.is_active ? "in_progress" : "active";
+};
+
+const getDisplaySkills = (skills: Record<string, string>): { name: string; level: string; isCore: boolean }[] => {
+  const skillEntries = Object.entries(skills || {});
+  if (skillEntries.length === 0) return [];
+
+  const highConfidenceLevels = ["expert", "advanced", "senior", "lead", "principal", "core", "5", "4", "3"];
+
+  const allSkills = skillEntries.map(([name, level]) => ({
+    name,
+    level: String(level).toLowerCase(),
+    isCore:
+      highConfidenceLevels.some((hcl) => String(level).toLowerCase().includes(hcl)) ||
+      (!isNaN(Number(level)) && Number(level) >= 3),
+  }));
+
+  allSkills.sort((a, b) => {
+    if (a.isCore && !b.isCore) return -1;
+    if (!a.isCore && b.isCore) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return allSkills.slice(0, 5);
+};
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  
+
   const [assessments, setAssessments] = useState<DisplayAssessment[]>([]);
+  const [activityRows, setActivityRows] = useState<AdminDashboardActivityItem[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     total_assessments: 0,
     pending: 0,
@@ -52,79 +138,38 @@ const AdminDashboard: React.FC = () => {
     expired: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "active" | "in_progress" | "completed" | "expired">("all");
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [interviewCredits] = useState(() => {
+    const saved = localStorage.getItem("admin.interviewCredits");
+    if (!saved) return 18;
+    const parsed = parseInt(saved, 10);
+    return Number.isNaN(parsed) ? 18 : parsed;
+  });
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => new Date().toISOString());
 
   useEffect(() => {
-    const fetchAssessments = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
         setError("");
-        
-        const token = localStorage.getItem("authToken");
-        
-        if (!token) {
-          setError("Authentication token not found. Please log in again.");
-          setLoading(false);
-          return;
-        }
 
-        const data = await assessmentService.listAssessments(undefined, 0, 50, true);
-        
-        const extractCandidateName = (description?: string, title?: string): string => {
-          if (description) {
-            const match = description.match(/candidate\s+(.+?)(?:\s*$|,)/i);
-            if (match) return match[1].trim();
-          }
-          if (title && !title.toLowerCase().includes("assessment")) {
-            return title;
-          }
-          return "N/A";
-        };
+        const user = await userService.getCurrentUser();
+        setCurrentUserRole(user?.role ?? null);
 
-        const getAssessmentStatus = (a: Assessment): "pending" | "active" | "in_progress" | "completed" | "expired" => {
-          if (a.is_expired) {
-            return "expired";
-          }
-          if (!a.is_published) {
-            return "pending";
-          }
-          return "active";
-        };
+        const [assessmentList, activity] = await Promise.all([
+          assessmentService.listAssessments(undefined, 0, 50, user?.role === "superadmin"),
+          dashboardService.getAdminActivity(),
+        ]);
 
-        const getDisplaySkills = (skills: Record<string, string>): { name: string; level: string; isCore: boolean }[] => {
-          const skillEntries = Object.entries(skills || {});
-          if (skillEntries.length === 0) return [];
-
-          const highConfidenceLevels = ["expert", "advanced", "senior", "lead", "principal", "core", "5", "4", "3"];
-          
-          const allSkills = skillEntries.map(([name, level]) => ({
-            name,
-            level: String(level).toLowerCase(),
-            isCore: highConfidenceLevels.some(hcl => String(level).toLowerCase().includes(hcl)) ||
-                    parseInt(String(level)) >= 3
-          }));
-          
-          allSkills.sort((a, b) => {
-            if (a.isCore && !b.isCore) return -1;
-            if (!a.isCore && b.isCore) return 1;
-            return a.name.localeCompare(b.name);
-          });
-          
-          return allSkills.slice(0, 5);
-        };
-        
-        const displayData: DisplayAssessment[] = data.map((a: Assessment) => ({
+        const displayData: DisplayAssessment[] = assessmentList.map((a: Assessment) => ({
           id: a.id.toString(),
           assessment_id: a.assessment_id,
           candidate_name: extractCandidateName(a.description, a.title),
           candidate_email: "",
-          role: a.job_title || a.title,
+          role: a.job_title || a.title || "Unassigned role",
           skills: getDisplaySkills(a.required_skills),
           status: getAssessmentStatus(a),
           created_at: a.created_at,
@@ -132,10 +177,11 @@ const AdminDashboard: React.FC = () => {
           expires_at: a.expires_at,
           assessment_method: a.assessment_method,
         }));
-        
+
         setAssessments(displayData);
-        
-        const calculatedStats = {
+        setActivityRows(activity);
+
+        const calculatedStats: DashboardStats = {
           total_assessments: displayData.length,
           pending: displayData.filter((a) => a.status === "pending").length,
           active: displayData.filter((a) => a.status === "active").length,
@@ -143,539 +189,298 @@ const AdminDashboard: React.FC = () => {
           completed: displayData.filter((a) => a.status === "completed").length,
           expired: displayData.filter((a) => a.status === "expired").length,
         };
-        
+
         setStats(calculatedStats);
-        if (displayData.length > 0) {
-          setToast({ type: "success", message: `Loaded ${displayData.length} assessments` });
+        setLastSyncedAt(new Date().toISOString());
+
+        if (activity.length > 0) {
+          setToast({ type: "success", message: `Recent activity synced (${activity.length} records)` });
         }
       } catch (err: any) {
-        console.error("Error fetching assessments:", err);
-        
-        let errorMessage = "Failed to load assessments.";
-        
+        console.error("Error fetching dashboard data:", err);
+        let errorMessage = "Failed to load dashboard data.";
         if (err.response?.status === 401) {
-          errorMessage = "Your session has expired. Please log in again.";
-        } else if (err.response?.status === 403) {
-          errorMessage = "You don't have permission to view assessments.";
-        } else if (err.response?.status === 404) {
-          setAssessments([]);
-          setStats({ total_assessments: 0, pending: 0, active: 0, in_progress: 0, completed: 0, expired: 0 });
-          setLoading(false);
-          return;
+          errorMessage = "Session expired. Please log in again.";
         } else if (!err.response) {
-          errorMessage = "Unable to connect to the server.";
+          errorMessage = "Unable to reach the server.";
         }
-        
         setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAssessments();
+    fetchDashboardData();
   }, [retryCount]);
 
-  const filteredAssessments = assessments.filter((assessment) => {
-    const matchesSearch = 
-      assessment.candidate_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assessment.role.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filterStatus === "all" || assessment.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const recentActivity = useMemo<RecentActivityRow[]>(() => {
+    return activityRows
+      .map((entry) => {
+        const statusLabel = formatStatusLabel(entry.status);
+        const statusClass = buildStatusClass(statusLabel);
+        const hasScore = typeof entry.score_percentage === "number";
+        const scoreValue = hasScore
+          ? Math.max(0, Math.min(100, Math.round(entry.score_percentage ?? 0)))
+          : 0;
+        const scoreLabel = hasScore ? `${scoreValue}%` : "N/A";
 
-  const getStatusInfo = (status: string) => {
-    const statusMap: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-      pending: { color: "warning", icon: <FiClock size={14} />, label: "Draft" },
-      active: { color: "success", icon: <FiCheckCircle size={14} />, label: "Active" },
-      in_progress: { color: "info", icon: <FiActivity size={14} />, label: "In Progress" },
-      completed: { color: "primary", icon: <FiCheckCircle size={14} />, label: "Completed" },
-      expired: { color: "danger", icon: <FiAlertCircle size={14} />, label: "Expired" },
-    };
-    return statusMap[status] || { color: "default", icon: "•", label: status };
-  };
+        return {
+          applicationId: entry.application_id,
+          candidate: entry.candidate_name || entry.candidate_email,
+          job: entry.job_title,
+          statusLabel,
+          statusClass,
+          score: scoreValue,
+          scoreLabel,
+          updatedAt: entry.updated_at ? new Date(entry.updated_at).getTime() : 0,
+        };
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 8);
+  }, [activityRows]);
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-IN", { 
-        year: "numeric", 
-        month: "short", 
-        day: "numeric" 
-      });
-    } catch {
-      return "N/A";
-    }
-  };
+  const shortlistedCandidates = activityRows.filter((entry) => entry.status === "shortlisted").length;
+  const activeJobsCount = useMemo(() => {
+    const roles = new Set<string>();
+    assessments.forEach((assessment) => {
+      if (["pending", "active", "in_progress"].includes(assessment.status)) {
+        if (assessment.role) {
+          roles.add(assessment.role);
+        } else {
+          roles.add(assessment.assessment_id);
+        }
+      }
+    });
+    return roles.size;
+  }, [assessments]);
 
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-  };
+  const scoredEntries = activityRows.filter((entry) => typeof entry.score_percentage === "number");
+  const averageScore = scoredEntries.length
+    ? Math.round(
+        scoredEntries.reduce((sum, entry) => sum + (entry.score_percentage ?? 0), 0) / scoredEntries.length
+      )
+    : 0;
 
-  const handleViewAssessment = (assessment: DisplayAssessment) => {
-    navigate(`/admin/assessment/${assessment.assessment_id}/view`);
-  };
+  const stageChartData = [
+    { label: "Screening", value: stats.pending },
+    { label: "Scheduled", value: stats.active },
+    { label: "In Progress", value: stats.in_progress },
+    { label: "Completed", value: stats.completed },
+  ];
 
-  const handleEditAssessment = (assessment: DisplayAssessment) => {
-    navigate(`/admin/assessment/${assessment.assessment_id}/edit`);
-  };
+  const maxStageValue = Math.max(...stageChartData.map((stage) => stage.value), 1);
 
-  const handleDeleteAssessment = async (assessment: DisplayAssessment) => {
-    if (deleteConfirm !== assessment.id) {
-      setDeleteConfirm(assessment.id);
-      setTimeout(() => setDeleteConfirm(null), 3000);
-      return;
-    }
+  const sparklineValues = recentActivity
+    .filter((entry) => entry.scoreLabel !== "N/A")
+    .slice(-6);
 
-    try {
-      setActionLoading(assessment.id);
-      await assessmentService.deleteAssessment(assessment.assessment_id);
-      
-      setAssessments(prev => prev.filter(a => a.id !== assessment.id));
-      
-      setStats(prev => ({
-        ...prev,
-        total_assessments: prev.total_assessments - 1,
-        pending: prev.pending - (assessment.status === 'pending' ? 1 : 0),
-        active: prev.active - (assessment.status === 'active' ? 1 : 0),
-        in_progress: prev.in_progress - (assessment.status === 'in_progress' ? 1 : 0),
-        completed: prev.completed - (assessment.status === 'completed' ? 1 : 0),
-        expired: prev.expired - (assessment.status === 'expired' ? 1 : 0),
-      }));
-      
-      setToast({ type: "success", message: "Assessment deleted successfully" });
-    } catch (err: any) {
-      console.error("Error deleting assessment:", err);
-      setToast({ 
-        type: "error", 
-        message: err.response?.data?.detail || "Failed to delete assessment" 
-      });
-    } finally {
-      setActionLoading(null);
-      setDeleteConfirm(null);
-    }
-  };
-
+  const handleRetry = () => setRetryCount((prev) => prev + 1);
   return (
     <div className="admin-dashboard">
-      {/* TOAST NOTIFICATIONS */}
       {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
+        <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />
       )}
 
-      {/* HEADER */}
-      <div className="dashboard-header">
-        <div className="header-decoration">
-          <div className="decoration-circle circle-1" />
-          <div className="decoration-circle circle-2" />
-          <div className="decoration-circle circle-3" />
+      <div className="top-bar">
+        <div>
+          <p className="eyebrow">Company view</p>
+          <h1>Hiring Activity Dashboard</h1>
+          <p className="sync-text">Last sync: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>
         </div>
-        <div className="header-content">
-          <div className="header-info">
-            <span className="header-welcome">Welcome back 👋</span>
-            <h1 className="page-title">Admin Dashboard</h1>
-            <p className="page-subtitle">
-              <FiActivity size={14} />
-              <span>Manage assessments, candidates, and track progress</span>
-            </p>
-          </div>
-          <div className="header-actions">
-            <div className="header-date">
-              <FiCalendar size={16} />
-              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            </div>
-            <button 
-              className="btn btn-primary btn-new-assessment"
-              onClick={() => navigate("/admin/assessment")}
-            >
-              <FiPlus size={18} />
-              <span>New Assessment</span>
-            </button>
-          </div>
+        <div className="top-bar-actions">
+          <button className="icon-btn" onClick={handleRetry} title="Refresh dashboard">
+            <FiRefreshCw size={18} />
+          </button>
+          <button className="btn btn-primary btn-new" onClick={() => navigate("/admin/assessment")}>
+            <FiPlus size={16} />
+            <span>New assessment</span>
+          </button>
+          {currentUserRole === "superadmin" && (
+            <button className="btn btn-secondary" onClick={() => navigate("/admin/super")}>System stats</button>
+          )}
         </div>
       </div>
 
-      {/* ERROR STATE WITH RETRY */}
       {error && (
         <div className="error-alert">
           <div className="error-content">
             <FiAlertCircle size={20} className="error-icon" />
-            <div className="error-text">
-              <p className="error-message">{error}</p>
-            </div>
-            <button 
-              className="btn-retry"
-              onClick={handleRetry}
-              title="Retry fetching assessments"
-            >
-              <FiRefreshCw size={18} />
-            </button>
-            <button 
-              className="btn-close"
-              onClick={() => setError("")}
-            >
-              <FiX size={18} />
-            </button>
+            <span>{error}</span>
+            <button className="btn-link" onClick={handleRetry}>Try again</button>
           </div>
         </div>
       )}
 
-      {/* STATS CARDS */}
-      <div className="stats-grid">
-        <div className="stat-card total">
-          <div className="stat-icon-wrapper">
-            <FiUsers size={24} />
+      <section className="kpi-row">
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiUsers size={18} />
           </div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.total_assessments}</div>
-            <h3 className="stat-label">Total Assessments</h3>
+          <p className="kpi-label">Active jobs</p>
+          <p className="kpi-value">{activeJobsCount}</p>
+          <p className="kpi-detail">Live requisitions</p>
+        </article>
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiActivity size={18} />
           </div>
-          <div className="stat-footer">
-            <span className="stat-trend positive">
-              <FiTrendingUp size={14} />
-              Active
-            </span>
+          <p className="kpi-label">Interviews in progress</p>
+          <p className="kpi-value">{stats.in_progress}</p>
+          <p className="kpi-detail">{stats.in_progress || 0} ongoing</p>
+        </article>
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiCheckCircle size={18} />
+          </div>
+          <p className="kpi-label">Completed interviews</p>
+          <p className="kpi-value">{stats.completed}</p>
+          <p className="kpi-detail">This cycle</p>
+        </article>
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiUsers size={18} />
+          </div>
+          <p className="kpi-label">Shortlisted candidates</p>
+          <p className="kpi-value">{shortlistedCandidates}</p>
+          <p className="kpi-detail">Based on latest interviews</p>
+        </article>
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiCalendar size={18} />
+          </div>
+          <p className="kpi-label">Interviews remaining</p>
+          <p className="kpi-value">{interviewCredits}</p>
+          <p className="kpi-detail">Credits left</p>
+        </article>
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiTrendingUp size={18} />
+          </div>
+          <p className="kpi-label">Average candidate score</p>
+          <p className="kpi-value">{averageScore}%</p>
+          <div className="sparkline">
+            {sparklineValues.map((entry, index) => (
+              <span key={`${entry.candidate}-${index}`} style={{ height: `${entry.score}%` }}></span>
+            ))}
+          </div>
+        </article>
+        <article className="kpi-card">
+          <div className="kpi-icon">
+            <FiAlertCircle size={18} />
+          </div>
+          <p className="kpi-label">Proctoring alerts</p>
+          <p className="kpi-value">{FLAGGED_ALERTS.length}</p>
+          <p className="kpi-detail">Flagged interviews</p>
+        </article>
+      </section>
+
+      <section className="secondary-section">
+        <div className="chart-card">
+          <div className="panel-heading">
+            <h2>Interviews by stage</h2>
+            <span>{stats.total_assessments} total</span>
+          </div>
+          <div className="chart-bars">
+            {stageChartData.map((stage) => (
+              <div className="chart-bar" key={stage.label}>
+                <span className="bar-value" style={{ height: `${(stage.value / maxStageValue) * 100}%` }}></span>
+                <p>{stage.label}</p>
+                <small>{stage.value}</small>
+              </div>
+            ))}
           </div>
         </div>
+        <div className="alerts-card">
+          <div className="panel-heading">
+            <h2>Alerts</h2>
+            <span>Flagged interviews</span>
+          </div>
+          <ul className="alerts-list">
+            {FLAGGED_ALERTS.map((alert) => (
+              <li key={`${alert.candidate}-${alert.job}`}>
+                <div>
+                  <p className="alert-candidate">{alert.candidate}</p>
+                  <p className="alert-job">{alert.job}</p>
+                </div>
+                <p className="alert-reason">{alert.reason}</p>
+                <span className="alert-time">{alert.timestamp}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
-        <div className="stat-card pending">
-          <div className="stat-icon-wrapper">
-            <FiClock size={24} />
+      <section className="main-section">
+        <div className="activity-panel">
+          <div className="panel-heading">
+            <h2>Recent activity</h2>
+            <span>{recentActivity.length} rows</span>
           </div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.pending}</div>
-            <h3 className="stat-label">Draft</h3>
-          </div>
-          <div className="stat-footer">
-            <div className="stat-progress">
-              <div 
-                className="stat-progress-bar" 
-                style={{ width: `${stats.total_assessments ? (stats.pending / stats.total_assessments) * 100 : 0}%` }}
-              />
+          {loading ? (
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Loading interviews...</p>
             </div>
-            <span className="stat-percentage">
-              {stats.total_assessments ? Math.round((stats.pending / stats.total_assessments) * 100) : 0}%
-            </span>
-          </div>
-        </div>
-
-        <div className="stat-card active">
-          <div className="stat-icon-wrapper">
-            <FiCheckCircle size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.active}</div>
-            <h3 className="stat-label">Active</h3>
-          </div>
-          <div className="stat-footer">
-            <div className="stat-progress">
-              <div 
-                className="stat-progress-bar" 
-                style={{ width: `${stats.total_assessments ? (stats.active / stats.total_assessments) * 100 : 0}%` }}
-              />
-            </div>
-            <span className="stat-percentage">
-              {stats.total_assessments ? Math.round((stats.active / stats.total_assessments) * 100) : 0}%
-            </span>
-          </div>
-        </div>
-
-        <div className="stat-card in-progress">
-          <div className="stat-icon-wrapper">
-            <FiActivity size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.in_progress}</div>
-            <h3 className="stat-label">In Progress</h3>
-          </div>
-          <div className="stat-footer">
-            <div className="stat-progress">
-              <div 
-                className="stat-progress-bar" 
-                style={{ width: `${stats.total_assessments ? (stats.in_progress / stats.total_assessments) * 100 : 0}%` }}
-              />
-            </div>
-            <span className="stat-percentage">
-              {stats.total_assessments ? Math.round((stats.in_progress / stats.total_assessments) * 100) : 0}%
-            </span>
-          </div>
-        </div>
-
-        <div className="stat-card completed">
-          <div className="stat-icon-wrapper">
-            <FiCheckCircle size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.completed}</div>
-            <h3 className="stat-label">Completed</h3>
-          </div>
-          <div className="stat-footer">
-            <div className="stat-progress">
-              <div 
-                className="stat-progress-bar" 
-                style={{ width: `${stats.total_assessments ? (stats.completed / stats.total_assessments) * 100 : 0}%` }}
-              />
-            </div>
-            <span className="stat-percentage">
-              {stats.total_assessments ? Math.round((stats.completed / stats.total_assessments) * 100) : 0}%
-            </span>
-          </div>
-        </div>
-
-        <div className="stat-card expired">
-          <div className="stat-icon-wrapper">
-            <FiAlertCircle size={24} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{stats.expired}</div>
-            <h3 className="stat-label">Expired</h3>
-          </div>
-          <div className="stat-footer">
-            <div className="stat-progress">
-              <div 
-                className="stat-progress-bar" 
-                style={{ width: `${stats.total_assessments ? (stats.expired / stats.total_assessments) * 100 : 0}%` }}
-              />
-            </div>
-            <span className="stat-percentage">
-              {stats.total_assessments ? Math.round((stats.expired / stats.total_assessments) * 100) : 0}%
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* FILTERS & SEARCH */}
-      <div className="filters-section">
-        <div className="search-box">
-          <FiSearch size={18} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search by email or role..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        <div className="filter-buttons">
-          <button
-            className={`filter-btn ${filterStatus === "all" ? "active" : ""}`}
-            onClick={() => setFilterStatus("all")}
-          >
-            <FiFilter size={16} />
-            <span>All</span>
-          </button>
-          <button
-            className={`filter-btn ${filterStatus === "pending" ? "active" : ""}`}
-            onClick={() => setFilterStatus("pending")}
-          >
-            <span>Draft</span>
-          </button>
-          <button
-            className={`filter-btn ${filterStatus === "active" ? "active" : ""}`}
-            onClick={() => setFilterStatus("active")}
-          >
-            <span>Active</span>
-          </button>
-          <button
-            className={`filter-btn ${filterStatus === "in_progress" ? "active" : ""}`}
-            onClick={() => setFilterStatus("in_progress")}
-          >
-            <span>In Progress</span>
-          </button>
-          <button
-            className={`filter-btn ${filterStatus === "completed" ? "active" : ""}`}
-            onClick={() => setFilterStatus("completed")}
-          >
-            <span>Completed</span>
-          </button>
-          <button
-            className={`filter-btn ${filterStatus === "expired" ? "active" : ""}`}
-            onClick={() => setFilterStatus("expired")}
-          >
-            <span>Expired</span>
-          </button>
-        </div>
-      </div>
-
-      {/* LOADING STATE */}
-      {loading && (
-        <div className="loading-state">
-          <div className="spinner"></div>
-          <p>Loading assessments...</p>
-        </div>
-      )}
-
-      {/* ASSESSMENTS TABLE */}
-      {!loading && filteredAssessments.length > 0 && (
-        <div className="assessments-section">
-          <div className="assessments-table-wrapper">
-            <table className="assessments-table">
-              <thead>
-                <tr>
-                  <th className="col-candidate">Candidate</th>
-                  <th className="col-role">Role</th>
-                  <th className="col-skills">Top Skills</th>
-                  <th className="col-status">Status</th>
-                  <th className="col-dates">Dates</th>
-                  <th className="col-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssessments.map((assessment) => {
-                  const statusInfo = getStatusInfo(assessment.status);
-                  return (
-                    <tr key={assessment.id} className={`assessment-row status-${assessment.status}`}>
-                      <td className="col-candidate">
-                        <div className="candidate-cell">
-                          <div className="candidate-avatar">
-                            {assessment.candidate_name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="candidate-name">{assessment.candidate_name}</span>
-                        </div>
+          ) : recentActivity.length > 0 ? (
+            <div className="table-wrapper">
+              <table className="recent-activity-table">
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivity.map((row) => (
+                    <tr key={row.applicationId}>
+                      <td>{row.candidate}</td>
+                      <td>{row.job}</td>
+                      <td>
+                        <span className={`status-pill status-${row.statusClass}`}>
+                          {row.statusLabel}
+                        </span>
                       </td>
-                      <td className="col-role">
-                        <span className="role-badge">{assessment.role}</span>
-                      </td>
-                      <td className="col-skills">
-                        <div className="skills-container">
-                          {assessment.skills.length > 0 ? (
-                            <>
-                              {assessment.skills.slice(0, 3).map((skill, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className={`skill-tag ${skill.isCore ? 'core' : 'primary'}`} 
-                                  title={`${skill.name} (${skill.level})${skill.isCore ? ' - Core Skill' : ''}`}
-                                >
-                                  {skill.name}
-                                </span>
-                              ))}
-                              {assessment.skills.length > 3 && (
-                                <span className="skill-more" title={assessment.skills.slice(3).map(s => s.name).join(", ")}>
-                                  +{assessment.skills.length - 3}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="no-skills">No skills defined</span>
-                          )}
+                      <td>
+                        <div className="score-bar">
+                          <span style={{ width: `${row.score}%` }}></span>
                         </div>
-                      </td>
-                      <td className="col-status">
-                        <div className={`status-badge ${statusInfo.color}`}>
-                          {statusInfo.icon}
-                          <span>{statusInfo.label}</span>
-                        </div>
-                      </td>
-                      <td className="col-dates">
-                        <div className="dates-cell">
-                          <div className="date-row">
-                            <span className="date-label">Created:</span>
-                            <span className="date-value">{formatDate(assessment.created_at)}</span>
-                          </div>
-                          <div className={`date-row expiry ${assessment.status === 'expired' ? 'expired' : assessment.expires_at ? 'has-expiry' : 'no-expiry'}`}>
-                            <span className="date-label">Expires:</span>
-                            <span className="date-value">
-                              {assessment.expires_at ? formatDate(assessment.expires_at) : 'No expiry'}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="col-actions">
-                        <div className="action-buttons">
-                          <button 
-                            className="action-btn view" 
-                            title="View assessment"
-                            aria-label="View"
-                            onClick={() => handleViewAssessment(assessment)}
-                          >
-                            <FiEye size={16} />
-                          </button>
-                          <button 
-                            className="action-btn edit" 
-                            title="Edit assessment"
-                            aria-label="Edit"
-                            onClick={() => handleEditAssessment(assessment)}
-                          >
-                            <FiEdit2 size={16} />
-                          </button>
-                          <button 
-                            className={`action-btn delete ${deleteConfirm === assessment.id ? 'confirm' : ''}`}
-                            title={deleteConfirm === assessment.id ? "Click again to confirm" : "Delete assessment"}
-                            aria-label="Delete"
-                            onClick={() => handleDeleteAssessment(assessment)}
-                            disabled={actionLoading === assessment.id}
-                          >
-                            {actionLoading === assessment.id ? (
-                              <FiRefreshCw size={16} className="spinning" />
-                            ) : (
-                              <FiTrash2 size={16} />
-                            )}
-                          </button>
-                        </div>
+                        <small>{row.scoreLabel}</small>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Results Summary */}
-          <div className="results-summary">
-            Showing <strong>{filteredAssessments.length}</strong> of <strong>{assessments.length}</strong> assessments
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="empty-note">No interviews recorded yet.</p>
+          )}
         </div>
-      )}
-
-      {/* EMPTY STATE */}
-      {!loading && assessments.length === 0 && !error && (
-        <div className="empty-state">
-          <div className="empty-illustration">
-            <svg viewBox="0 0 100 100" width="80" height="80">
-              <rect x="20" y="20" width="60" height="60" fill="none" stroke="currentColor" strokeWidth="2" rx="4"/>
-              <line x1="20" y1="35" x2="80" y2="35" stroke="currentColor" strokeWidth="2"/>
-              <line x1="25" y1="45" x2="35" y2="45" stroke="currentColor" strokeWidth="1.5"/>
-              <line x1="25" y1="55" x2="75" y2="55" stroke="currentColor" strokeWidth="1.5"/>
-              <line x1="25" y1="65" x2="75" y2="65" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
+        <div className="alerts-panel">
+          <div className="panel-heading">
+            <h2>Flagged interviews</h2>
           </div>
-          <h3 className="empty-title">No Assessments Yet</h3>
-          <p className="empty-description">Start creating assessments to manage candidates</p>
-          <button 
-            className="btn btn-primary"
-            onClick={() => navigate("/admin/assessment")}
-          >
-            <FiPlus size={18} />
-            <span>Create First Assessment</span>
-          </button>
+          <ul className="alerts-panel-list">
+            {FLAGGED_ALERTS.map((alert) => (
+              <li key={`${alert.candidate}-${alert.reason}`}>
+                <div>
+                  <p className="alert-candidate">{alert.candidate}</p>
+                  <p className="alert-job">{alert.job}</p>
+                </div>
+                <span className="alert-time">{alert.timestamp}</span>
+                <p className="alert-reason small">{alert.reason}</p>
+              </li>
+            ))}
+          </ul>
+          <button className="btn-link">View all alerts</button>
         </div>
-      )}
+      </section>
 
-      {/* NO RESULTS STATE */}
-      {!loading && assessments.length > 0 && filteredAssessments.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-illustration">
-            <FiSearch size={60} />
-          </div>
-          <h3 className="empty-title">No Matching Assessments</h3>
-          <p className="empty-description">Try adjusting your search or filter criteria</p>
-          <button 
-            className="btn btn-secondary"
-            onClick={() => {
-              setSearchTerm("");
-              setFilterStatus("all");
-            }}
-          >
-            Clear Filters
-          </button>
-        </div>
-      )}
+      <div className="footer-strip">
+        <span>Need more credits? Contact your account team.</span>
+        <span>Last updated {new Date(lastSyncedAt).toLocaleString([], { hour: "numeric", minute: "2-digit" })}</span>
+      </div>
     </div>
   );
 };

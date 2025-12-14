@@ -1,110 +1,378 @@
 .admin-requirement {
   padding: 32px;
-  background: #f8f9fa;
   min-height: 100vh;
+  background: #f5f3ff;
 
-  .requirement-container {
-    max-width: 700px;
+  .requirement-layout {
+    max-width: 1200px;
     margin: 0 auto;
-    background: white;
-    border-radius: 12px;
-    padding: 40px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
 
-    h1 {
-      font-size: 28px;
+  .requirement-tabs {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .requirement-tab {
+    border-radius: 999px;
+    padding: 8px 20px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #4c1d95;
+    background: #ede9fe;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+  }
+
+  .requirement-tab.active {
+    background: #4338ca;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .requirement-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .requirement-panel {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    h1,
+    h2 {
+      margin: 0;
+      font-size: 26px;
       font-weight: 600;
       color: #0f172a;
-      margin-bottom: 8px;
     }
 
     .subtitle {
-      color: #64748b;
+      color: #475569;
       font-size: 14px;
-      margin-bottom: 32px;
+      margin-top: 4px;
     }
 
-    .requirement-form {
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .status-chip {
+      background: #ede9fe;
+      color: #5b21b6;
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-chip.muted {
+      background: #f8fafc;
+      color: #475569;
+    }
+  }
+
+  .requirement-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .form-group {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 6px;
 
-      .form-group {
+      label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #334155;
+      }
+
+      input,
+      select,
+      textarea {
+        border: 1px solid #dbeafe;
+        border-radius: 10px;
+        padding: 12px 14px;
+        background: #f8fafc;
+        font-family: inherit;
+        font-size: 14px;
+        transition: border 0.2s;
+      }
+
+      textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #7c3aed;
+      }
+    }
+
+    .submit-btn {
+      align-self: flex-start;
+      padding: 12px 30px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #7c3aed, #4338ca);
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(67, 56, 202, 0.25);
+    }
+  }
+
+  .summary-panel {
+    gap: 22px;
+
+    .requirement-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+
+      div {
+        padding: 16px;
+        border-radius: 12px;
+        background: #fdf4ff;
+        color: #5b21b6;
+        font-size: 12px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
+      }
 
-        label {
-          font-size: 14px;
-          font-weight: 500;
-          color: #1e293b;
+      strong {
+        font-size: 20px;
+        color: #0f172a;
+      }
+    }
+
+    .requirement-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 520px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .requirement-card {
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: #f9f5ff;
+      border: 1px solid #e0d3ff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+
+        h3 {
+          margin: 0;
+          font-size: 18px;
         }
 
-        input,
-        select,
-        textarea {
-          padding: 12px 16px;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          font-size: 14px;
-          font-family: inherit;
-          transition: all 0.2s ease;
-
-          &:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-          }
-
-          &:hover:not(:focus) {
-            border-color: #cbd5e1;
-          }
-        }
-
-        textarea {
-          resize: vertical;
-          min-height: 100px;
+        p {
+          margin: 0;
+          color: #475569;
         }
       }
 
-      .submit-btn {
-        margin-top: 8px;
-        padding: 12px 24px;
-        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
+      .description {
+        margin: 0;
+        color: #475569;
         font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-
-        &:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(30, 58, 138, 0.2);
-        }
-
-        &:active {
-          transform: translateY(0);
-        }
       }
+
+      .card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 13px;
+        color: #475569;
+      }
+
+      .skill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .skill-pill {
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: #ede9fe;
+        color: #4c1d95;
+        font-size: 12px;
+      }
+
+      .status-pill {
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .status-pill.open {
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      .status-pill.draft {
+        background: #ecfccb;
+        color: #15803d;
+      }
+
+      .status-pill.closed {
+        background: #fddede;
+        color: #b91c1c;
+      }
+    }
+  }
+
+  .management-panel {
+    gap: 18px;
+
+    .management-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .management-table-wrapper {
+      overflow-x: auto;
+    }
+
+    .management-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      min-width: 720px;
+    }
+
+    .management-table th,
+    .management-table td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+    }
+
+    .management-table th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #475569;
+    }
+
+    .management-table td select {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #dbeafe;
+      padding: 8px 10px;
+      font-size: 13px;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    .priority-pill {
+      border-radius: 999px;
+      padding: 4px 12px;
+      background: #ede9fe;
+      color: #4c1d95;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .skill-preview {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .tiny-text {
+      display: block;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    .actions-cell {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .management-table .btn-link {
+      padding: 0;
+      font-size: 13px;
+      color: #7c3aed;
+    }
+
+    .management-table .empty-row td {
+      padding: 24px 10px;
+      text-align: center;
+      color: #94a3b8;
     }
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .admin-requirement {
-    padding: 16px;
+    padding: 20px;
 
-    .requirement-container {
+    .requirement-panel {
       padding: 24px;
+    }
 
-      h1 {
-        font-size: 24px;
-      }
+    .requirement-stats {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
 
-      .requirement-form {
-        gap: 16px;
+    .management-panel {
+      .management-table {
+        min-width: 100%;
       }
     }
   }

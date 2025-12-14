@@ -142,7 +142,23 @@ def is_admin_user(email: str) -> bool:
     """
     from config import get_settings
     settings = get_settings()
+    # Deprecated: legacy admin detection by email.
+    # We prefer role-based checks on the User model, but keep this for compatibility.
     return email.lower() in [e.lower() for e in settings.ADMIN_EMAILS]
+
+
+def is_super_admin(user) -> bool:
+    """Return True if user has role 'superadmin'."""
+    return hasattr(user, 'role') and getattr(user, 'role') == 'superadmin'
+
+
+async def check_superadmin(user):
+    """Raise HTTPException if user is not superadmin."""
+    if not is_super_admin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superadmin privileges required"
+        )
 
 
 async def check_admin(user):
@@ -156,7 +172,8 @@ async def check_admin(user):
         HTTPException: If user is not admin
     """
     # Check admin status by email
-    if not hasattr(user, 'email') or not is_admin_user(user.email):
+    # Prefer role-based admin check. Allow both 'admin' and 'superadmin'.
+    if not hasattr(user, 'role') or user.role not in ["admin", "superadmin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"

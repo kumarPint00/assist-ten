@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
-import { FiX, FiCheck, FiAlertCircle, FiChevronDown, FiChevronUp, FiStar } from "react-icons/fi";
+import { FiX, FiCheck, FiAlertCircle, FiStar } from "react-icons/fi";
 import "./RoleSkillPlaceholder.scss";
 
 interface Props {
@@ -17,6 +17,8 @@ interface Props {
   jdSkills?: string[];
   skillDurations?: Record<string, number>;
   onClearExtraction?: () => void;
+  onRetryAutoFill?: () => void;
+  skillLevels?: Record<string, 'strong' | 'advance' | 'intermediate' | 'basic'>;
 }
 
 const SKILL_SUGGESTIONS = [
@@ -56,13 +58,13 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
   jdSkills = [],
   skillDurations = {},
   onClearExtraction: _onClearExtraction,
+  onRetryAutoFill,
+  skillLevels = {},
 }) => {
   const [tempSkill, setTempSkill] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
-  const [showAllSkills, setShowAllSkills] = useState(false);
-
-  const TOP_SKILLS_COUNT = 5;
+  // Note: show more/less toggles have been removed — grouped sections display all skills
 
   const sortedSkills = useMemo(() => {
     return skills
@@ -82,9 +84,24 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
       });
   }, [skills, jdSkills, skillDurations]);
 
-  const topSkills = sortedSkills.slice(0, TOP_SKILLS_COUNT);
-  const remainingSkills = sortedSkills.slice(TOP_SKILLS_COUNT);
-  const hasMoreSkills = remainingSkills.length > 0;
+  // All skills are rendered grouped by level; no collapsed/expanded view.
+
+  // Group skills by level based on skillLevels prop
+  const levelGroups = useMemo(() => {
+    const groups: Record<string, { name: string, duration: number, isMatched: boolean }[]> = {
+      basic: [],
+      intermediate: [],
+      advance: [],
+      strong: [],
+    };
+    skills.forEach(s => {
+      const level = (skillLevels && skillLevels[s]) || 'intermediate';
+      const skillData = sortedSkills.find(d => d.name === s) || { name: s, duration: skillDurations[s.toLowerCase()] || 0, isMatched: jdSkills.some(jd => jd.toLowerCase() === s.toLowerCase()) };
+      groups[level].push(skillData as any);
+    });
+    return groups;
+  }, [skills, skillLevels, sortedSkills, skillDurations, jdSkills]);
+  // no collapse/expand state — everything is always visible
   const matchedCount = sortedSkills.filter(s => s.isMatched).length;
 
   const handleRoleChange = (value: string) => {
@@ -129,6 +146,7 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
   };
 
   const removeSkill = (index: number) => {
+    if (index < 0 || index >= skills.length) return;
     const updated = [...skills];
     updated.splice(index, 1);
     setSkills(updated);
@@ -252,78 +270,29 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
           </div>
         )}
 
-        <div className="skills-list">
-          {topSkills.map((skillData, index) => {
-            const isExtracted = extractedSkills?.includes(skillData.name);
-            const originalIndex = skills.indexOf(skillData.name);
-            return (
-              <div
-                key={index}
-                className={`skill-chip ${isExtracted ? "extracted" : "manual"} ${skillData.isMatched ? "matched" : ""}`}
-              >
-                {skillData.isMatched && <FiStar className="match-star" size={12} />}
-                <span className="skill-name">{skillData.name}</span>
-                {skillData.duration > 0 && (
-                  <span className="skill-duration">{skillData.duration}+ yrs</span>
-                )}
-                {isExtracted && !skillData.isMatched && <span className="source-label">auto</span>}
-                <button
-                  type="button"
-                  className="remove-skill"
-                  onClick={() => removeSkill(originalIndex)}
-                  aria-label={`Remove ${skillData.name}`}
-                  title={`Remove ${skillData.name}`}
-                >
-                  <FiX size={14} />
-                </button>
+        <div className="skills-list grouped-skills">
+          {/* Grouped skill sections */}
+          {['basic', 'intermediate', 'advance', 'strong'].map((lvl) => (
+            <div key={lvl} className={`skill-group skill-group-${lvl}`}>
+              <h4 className="skill-group-title">{lvl.charAt(0).toUpperCase() + lvl.slice(1)}</h4>
+              <div className="skill-group-list">
+                {(levelGroups as any)[lvl].map((skillData: any, index: number) => (
+                  <div key={`${lvl}-${index}`} className={`skill-chip level-${lvl} ${skillData.isMatched ? 'matched' : ''}`}>
+                    {skillData.isMatched && <FiStar className="match-star" size={12} />}
+                    <span className="skill-name">{skillData.name}</span>
+                    {skillData.duration > 0 && <span className="skill-duration">{skillData.duration}+ yrs</span>}
+                    {extractedSkills?.includes(skillData.name) && !skillData.isMatched && <span className="source-label">auto</span>}
+                    <button type="button" className="remove-skill" onClick={() => removeSkill(skills.indexOf(skillData.name))} aria-label={`Remove ${skillData.name}`} title={`Remove ${skillData.name}`}>
+                      <FiX size={14} />
+                    </button>
+                  </div>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
-        {hasMoreSkills && (
-          <div className="skills-collapse-section">
-            <button
-              type="button"
-              className="collapse-toggle"
-              onClick={() => setShowAllSkills(!showAllSkills)}
-            >
-              {showAllSkills ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-              {showAllSkills ? "Show less" : `Show ${remainingSkills.length} more skills`}
-            </button>
-            
-            {showAllSkills && (
-              <div className="skills-list collapsed-skills">
-                {remainingSkills.map((skillData, index) => {
-                  const isExtracted = extractedSkills?.includes(skillData.name);
-                  const originalIndex = skills.indexOf(skillData.name);
-                  return (
-                    <div
-                      key={index}
-                      className={`skill-chip ${isExtracted ? "extracted" : "manual"} ${skillData.isMatched ? "matched" : ""}`}
-                    >
-                      {skillData.isMatched && <FiStar className="match-star" size={12} />}
-                      <span className="skill-name">{skillData.name}</span>
-                      {skillData.duration > 0 && (
-                        <span className="skill-duration">{skillData.duration}+ yrs</span>
-                      )}
-                      {isExtracted && !skillData.isMatched && <span className="source-label">auto</span>}
-                      <button
-                        type="button"
-                        className="remove-skill"
-                        onClick={() => removeSkill(originalIndex)}
-                        aria-label={`Remove ${skillData.name}`}
-                        title={`Remove ${skillData.name}`}
-                      >
-                        <FiX size={14} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+        {/* no collapsed section — all skills shown in the grouped view above */}
 
         {/* Extracted Skills Preview (if not used yet) */}
         {extractedSkills && extractedSkills.length > 0 && skills.length === 0 && (
@@ -354,6 +323,11 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
       {(extractedRole || extractedSkills?.length) && (
         <div className="extraction-info">
           <p>💡 <strong>Tip:</strong> You can customize the auto-extracted suggestions or keep them as-is. Click &quot;Use suggestion&quot; or &quot;Add all&quot; to accept.</p>
+          {onRetryAutoFill && (
+            <button className="use-extraction-btn retry-btn" onClick={onRetryAutoFill} title="Retry auto-fill using LLM">
+              Retry Auto-Fill
+            </button>
+          )}
         </div>
       )}
     </div>

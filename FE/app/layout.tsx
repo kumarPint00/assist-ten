@@ -3,7 +3,7 @@ import ClientLayout from './ClientLayout';
 import { Suspense } from 'react';
 
 export const metadata: Metadata = {
-  title: 'AI Learning Assessment Platform',
+  title: 'Assist-Ten Assessment Platform',
   description: 'AI-powered learning and assessment platform for skill evaluation and course recommendations',
 };
 

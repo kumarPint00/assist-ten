@@ -1,0 +1,100 @@
+.superadmin-wireframe {
+	width: 100%;
+	max-width: 1360px;
+	margin: 0 auto;
+	padding: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+.sa-toolbar {
+	background: #fff;
+	border-radius: 20px;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	box-shadow: 0 18px 50px rgba(15, 23, 42, 0.14);
+	padding: 12px 16px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 16px;
+}
+.kpi-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+	gap: 12px;
+}
+.kpi-grid > * {
+	min-height: 90px;
+}
+.main-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 360px;
+	gap: 24px;
+}
+.grid-left {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+.chart-stack {
+	display: grid;
+	gap: 18px;
+}
+.chart-card,
+.admins-panel,
+.alerts-card,
+.health-card,
+.small-card {
+	background: #fff;
+	border-radius: 20px;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	box-shadow: 0 16px 38px rgba(15, 23, 42, 0.12);
+	padding: 18px;
+}
+.secondary-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+.small-card {
+	flex: 1;
+}
+.admins-panel header {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-bottom: 12px;
+}
+.admins-panel h3 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 700;
+}
+.admins-panel p {
+	margin: 0;
+	color: #64748b;
+	font-size: 13px;
+}
+.grid-right {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+.health-card {
+	min-height: 140px;
+}
+.alerts-card {
+	padding: 0;
+}
+@media (max-width: 1100px) {
+	.main-grid {
+		grid-template-columns: 1fr;
+	}
+	.grid-right {
+		flex-direction: row;
+		flex-wrap: wrap;
+	}
+	.grid-right .alerts-card {
+		flex: 1 1 100%;
+	}
+}

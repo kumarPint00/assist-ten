@@ -1,5 +1,5 @@
 # ============================================================================
-# AI LEARNING APP - COMPREHENSIVE GITIGNORE
+# Assist-Ten - COMPREHENSIVE GITIGNORE
 # ============================================================================
 # This file specifies which files should NOT be tracked by Git
 # Last Updated: December 3, 2025
@@ -261,30 +261,8 @@ results/
 # DOCUMENTATION THAT SHOULDN'T BE TRACKED
 # ============================================================================
 # Keep in _documentation_and_assets/ instead
-DOCUMENTATION_INDEX.md
-COMPLETE_DOCUMENTATION.md
-ADMIN_SKILL_EXTRACTION_API.md
-ADMIN_SKILL_EXTRACTION_CHECKLIST.md
-ADMIN_SKILL_EXTRACTION_QUICK_START.md
-ADMIN_SKILL_EXTRACTION_SUMMARY.md
-AGENTIC_SYSTEM_HLD.md
-AGENT_IMPLEMENTATIONS_COMPLETE.md
-FRONTEND_API_QUICK_REFERENCE.md
-FRONTEND_BACKEND_ALIGNMENT.md
-HOW_SKILL_EXTRACTION_WORKS.md
-IMPLEMENTATION_COMPLETE.md
-IMPLEMENTATION_SUMMARY.md
-INTERVIEW_PLATFORM_ENHANCEMENT.md
-MVP1_BOARD.csv
-MVP1_BOARD.md
-PRODUCTION_AGENT_SPECS.md
-README_ADMIN_SKILL_EXTRACTION.md
-README_DOCS.md
-ROLE_BASED_ASSESSMENT_SYSTEM.md
-SPRINT1_FRONTEND_QUICK_START.md
-SPRINT_1_API_DOCS.md
-SPRINT_1_IMPLEMENTATION_SUMMARY.md
-START_HERE_ADMIN_SKILL_EXTRACTION.md
+documentations/
+archive/
 
 # ============================================================================
 # EXCEPTIONS - FILES TO ALWAYS TRACK

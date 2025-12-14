@@ -1,5 +1,10 @@
-import AssessmentSetupContainer from '../../../src/containers/AssessmentSetupContainer';
+import AssessmentCreationLayout from "../../../src/components/admin/AssessmentCreationLayout";
+import AssessmentSetupContainer from "../../../src/containers/AssessmentSetupContainer/AssessmentSetupContainer";
 
 export default function AssessmentPage() {
-  return <AssessmentSetupContainer />;
+  return (
+    <AssessmentCreationLayout>
+      <AssessmentSetupContainer />
+    </AssessmentCreationLayout>
+  );
 }

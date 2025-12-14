@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# AI Learning App - Setup Script
+# Assist-Ten - Setup Script
 # Run this script to set up the development environment
 # Usage: chmod +x setup.sh && ./setup.sh
 
-echo -e "\033[0;32m🚀 Setting up AI Learning App Backend...\033[0m"
+echo -e "\033[0;32m🚀 Setting up Assist-Ten Backend...\033[0m"
 
 # Check Python version
 echo -e "\n\033[0;33m📍 Checking Python version...\033[0m"

@@ -130,6 +130,35 @@ class TestResult(BaseModel):
     detailed_results: List[QuestionResult]
     completed_at: datetime
 
+class TestSessionResponse(BaseModel):
+    """Basic test session information."""
+    session_id: str
+    question_set_id: Optional[str] = None
+    jd_id: Optional[str] = None
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    is_completed: bool
+    total_questions: int
+    correct_answers: int
+    score_percentage: Optional[float] = None
+
+class TestSessionDetailResponse(BaseModel):
+    """Detailed test session information."""
+    session_id: str
+    question_set_id: Optional[str] = None
+    jd_id: Optional[str] = None
+    candidate_name: Optional[str] = None
+    candidate_email: Optional[str] = None
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    is_completed: bool
+    is_scored: bool
+    score_released_at: Optional[datetime] = None
+    total_questions: int
+    correct_answers: int
+    score_percentage: Optional[float] = None
+
 class CourseRecommendation(BaseModel):
     name: str = Field(..., description="Course pathway display name")
     topic: str = Field(..., description="Skill/Topic Pathways")
@@ -380,4 +409,36 @@ class AdminBulkSkillExtractionResponse(BaseModel):
         description="Summary stats: skills_by_category, proficiency_distribution"
     )
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MatchedSkill(BaseModel):
+    skill_name: str
+    jd_proficiency: Optional[str] = None
+    cv_proficiency: Optional[str] = None
+    confidence: Optional[float] = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class SkillMatchResponse(BaseModel):
+    success: bool = True
+    match_score: float = 0.0
+    matched_skills: List[MatchedSkill] = []
+    missing_skills: List[str] = []
+    extra_skills: List[str] = []
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SkillMatchRecord(BaseModel):
+    id: int
+    match_id: str
+    user_id: int
+    jd_file_id: Optional[int]
+    cv_file_id: Optional[int]
+    match_score: float
+    matched_skills: List[MatchedSkill]
+    missing_skills: List[str]
+    extra_skills: List[str]
+    summary: Dict[str, Any]
+    llm_used: bool
+    provider: Optional[str]
+    created_at: datetime
 

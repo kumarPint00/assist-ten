@@ -1,7 +1,7 @@
-# AI Learning App - Setup Script
+# Assist-Ten - Setup Script
 # Run this script to set up the development environment
 
-Write-Host "🚀 Setting up AI Learning App Backend..." -ForegroundColor Green
+Write-Host "🚀 Setting up Assist-Ten Backend..." -ForegroundColor Green
 
 # Check Python version
 Write-Host "`n📍 Checking Python version..." -ForegroundColor Yellow

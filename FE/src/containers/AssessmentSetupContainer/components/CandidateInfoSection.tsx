@@ -1,5 +1,6 @@
 import React from "react";
-import { FiUser, FiMail, FiBriefcase, FiClock } from "react-icons/fi";
+import { FiUser, FiMail, FiBriefcase, FiClock, FiMapPin, FiBook, FiLink, FiGithub } from "react-icons/fi";
+import { SiLinkedin } from "react-icons/si";
 import "./CandidateInfoSection.scss";
 
 export interface CandidateInfoData {
@@ -34,6 +35,13 @@ const CandidateInfoSection: React.FC<CandidateInfoSectionProps> = ({
   setEmailError,
   isAutoFilled = false,
 }) => {
+  // Debug: Log when candidateInfo changes
+  React.useEffect(() => {
+    if (candidateInfo.email || candidateInfo.name || candidateInfo.phone) {
+      console.log("[👁️ CandidateInfoSection] Received data:", candidateInfo);
+    }
+  }, [candidateInfo]);
+  
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -81,7 +89,8 @@ const CandidateInfoSection: React.FC<CandidateInfoSectionProps> = ({
             value={candidateInfo.name}
             onChange={(e) => handleChange("name", e.target.value)}
             placeholder="Enter candidate name"
-            className={candidateInfo.name ? "has-value" : ""}
+            className={`${candidateInfo.name ? "has-value" : ""} ${isAutoFilled && candidateInfo.name ? "auto-filled" : ""}`}
+            title={isAutoFilled && candidateInfo.name ? "Auto-filled from CV" : ""}
           />
         </div>
 
@@ -95,7 +104,8 @@ const CandidateInfoSection: React.FC<CandidateInfoSectionProps> = ({
             value={candidateInfo.email}
             onChange={(e) => handleChange("email", e.target.value)}
             placeholder="candidate@email.com"
-            className={`${emailError ? "error" : ""} ${emailValid ? "valid" : ""}`}
+            className={`${emailError ? "error" : ""} ${emailValid ? "valid" : ""} ${isAutoFilled && candidateInfo.email ? "auto-filled" : ""}`}
+            title={isAutoFilled && candidateInfo.email ? "Auto-filled from CV" : ""}
           />
           {emailError && <span className="error-text">{emailError}</span>}
         </div>
@@ -110,6 +120,8 @@ const CandidateInfoSection: React.FC<CandidateInfoSectionProps> = ({
             value={candidateInfo.currentRole}
             onChange={(e) => handleChange("currentRole", e.target.value)}
             placeholder="e.g., Senior Software Engineer"
+            className={isAutoFilled && candidateInfo.currentRole ? "auto-filled" : ""}
+            title={isAutoFilled && candidateInfo.currentRole ? "Auto-filled from CV" : ""}
           />
         </div>
 
@@ -123,6 +135,83 @@ const CandidateInfoSection: React.FC<CandidateInfoSectionProps> = ({
             value={candidateInfo.experience}
             onChange={(e) => handleChange("experience", e.target.value)}
             placeholder="e.g., 5 years"
+          />
+        </div>
+
+        <div className="info-field">
+          <label>
+            📱 Phone Number
+          </label>
+          <input
+            type="tel"
+            value={candidateInfo.phone}
+            onChange={(e) => handleChange("phone", e.target.value)}
+            placeholder="e.g., +1 (555) 123-4567"
+          />
+        </div>
+
+        <div className="info-field">
+          <label>
+            <FiMapPin className="field-icon" />
+            Location
+          </label>
+          <input
+            type="text"
+            value={candidateInfo.location}
+            onChange={(e) => handleChange("location", e.target.value)}
+            placeholder="e.g., San Francisco, CA"
+          />
+        </div>
+
+        <div className="info-field">
+          <label>
+            <FiBook className="field-icon" />
+            Education
+          </label>
+          <input
+            type="text"
+            value={candidateInfo.education}
+            onChange={(e) => handleChange("education", e.target.value)}
+            placeholder="e.g., B.S. Computer Science"
+          />
+        </div>
+
+        <div className="info-field">
+          <label>
+            <SiLinkedin className="field-icon" style={{ color: '#0077B5' }} />
+            LinkedIn Profile
+          </label>
+          <input
+            type="url"
+            value={candidateInfo.linkedIn}
+            onChange={(e) => handleChange("linkedIn", e.target.value)}
+            placeholder="https://linkedin.com/in/yourprofile"
+          />
+        </div>
+
+        <div className="info-field">
+          <label>
+            <FiGithub className="field-icon" />
+            GitHub Profile
+          </label>
+          <input
+            type="url"
+            value={candidateInfo.github}
+            onChange={(e) => handleChange("github", e.target.value)}
+            placeholder="https://github.com/yourprofile"
+          />
+        </div>
+
+        <div className="info-field">
+          <label>
+            <FiLink className="field-icon" />
+            Portfolio Website
+          </label>
+          <input
+            type="url"
+            value={candidateInfo.portfolio}
+            onChange={(e) => handleChange("portfolio", e.target.value)}
+            placeholder="https://yourportfolio.com"
           />
         </div>
       </div>

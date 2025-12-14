@@ -1,5 +1,5 @@
-import AdminRequirement from '../../../src/containers/AdminRequirement/AdminRequirement';
+import { redirect } from "next/navigation";
 
-export default function RequirementPage() {
-  return <AdminRequirement />;
+export default function RequirementIndexPage() {
+  redirect("/admin/requirement/creation");
 }

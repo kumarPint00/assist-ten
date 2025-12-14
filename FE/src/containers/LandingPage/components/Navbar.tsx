@@ -5,13 +5,14 @@ import { useNavigate } from "../../../hooks/navigation";
 import { useEffect, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import "./Navbar.scss";
-import { isAdmin } from "../../../utils/adminUsers";
+import { userService } from '../../../API/services';
 import { Logo } from '../../../components/ui';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const [token, setToken] = useState<string | null>(null);
   const [loggedUser, setLoggedUser] = useState<string | null>(null);
+  const [isAdminFlag, setIsAdminFlag] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("hero");
 
@@ -21,7 +22,19 @@ const Navbar = () => {
 
   useEffect(() => {
     setToken(localStorage.getItem("authToken"));
-    setLoggedUser(localStorage.getItem("loggedInUser"));
+    const email = localStorage.getItem("loggedInUser");
+    setLoggedUser(email);
+    const fetchUser = async () => {
+      if (!email) return;
+      try {
+        const user = await userService.getCurrentUser();
+        const role = user?.role || 'user';
+        setIsAdminFlag(role === 'admin' || role === 'superadmin');
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchUser();
   }, []);
 
   useEffect(() => {
@@ -102,7 +115,7 @@ const Navbar = () => {
 
       <Box className="navbar-actions">
         {/* ⭐ ADMIN DASHBOARD BUTTON (only for logged-in admins) */}
-        {loggedUser && isAdmin(loggedUser) && (
+        {loggedUser && isAdminFlag && (
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

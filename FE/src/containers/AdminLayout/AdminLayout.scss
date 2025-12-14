@@ -17,9 +17,13 @@
   top: 0;
   left: 0;
   bottom: 0;
-  background: #111827;
+  background: linear-gradient(180deg, #050816 0%, #0b1725 100%);
   color: white;
   overflow-y: auto; /* Only scroll if sidebar items overflow */
+}
+
+.admin-sidebar-fixed.superadmin {
+  width: 220px;
 }
 
 /* -------------------------------------------
@@ -32,6 +36,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden; 
+}
+
+.admin-sidebar-fixed.superadmin ~ .admin-content {
+  margin-left: 220px;
+  width: calc(100% - 220px);
 }
 
 /* -------------------------------------------

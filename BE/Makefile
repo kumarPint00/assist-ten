@@ -1,9 +1,9 @@
-# Makefile for AI Learning App Backend
+# Makefile for Assist-Ten Backend
 
 .PHONY: help install dev prod test clean docker-up docker-down migrate shell
 
 help:
-	@echo "AI Learning App - Backend Commands"
+	@echo "Assist-Ten - Backend Commands"
 	@echo ""
 	@echo "Development:"
 	@echo "  make install      - Install dependencies"
@@ -66,6 +66,12 @@ docker-logs:
 
 docker-rebuild:
 	docker-compose up -d --build
+
+create-superadmin:
+	python scripts/create_superadmin.py --create-admins
+
+seed-db:
+	python scripts/seed_db.py --create-admins
 
 test:
 	pytest
