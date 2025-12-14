@@ -202,10 +202,155 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS ix_application_notes_note_id ON application_notes(note_id)")
     op.execute("CREATE INDEX IF NOT EXISTS ix_application_notes_application_id ON application_notes(application_id)")
     op.execute("CREATE INDEX IF NOT EXISTS ix_application_notes_author_id ON application_notes(author_id)")
+    
+    # Create audit_logs table (superadmin)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            log_id VARCHAR(100) NOT NULL UNIQUE,
+            user_id INTEGER REFERENCES users(id),
+            user_email VARCHAR(255),
+            user_role VARCHAR(50),
+            action VARCHAR(50) NOT NULL,
+            entity_type VARCHAR(100) NOT NULL,
+            entity_id VARCHAR(100),
+            description TEXT NOT NULL,
+            changes JSON DEFAULT '{}',
+            ip_address VARCHAR(45),
+            user_agent VARCHAR(500),
+            request_id VARCHAR(100),
+            severity VARCHAR(20) DEFAULT 'info' NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+    
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_log_id ON audit_logs(log_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_user_id ON audit_logs(user_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_action ON audit_logs(action)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_entity_type ON audit_logs(entity_type)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_entity_id ON audit_logs(entity_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_request_id ON audit_logs(request_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs(created_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_user_action ON audit_logs(user_id, action)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_entity ON audit_logs(entity_type, entity_id)")
+    
+    # Create tenants table (superadmin)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS tenants (
+            id SERIAL PRIMARY KEY,
+            tenant_id VARCHAR(100) NOT NULL UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            domain VARCHAR(255) UNIQUE,
+            settings JSON DEFAULT '{}',
+            features_enabled JSON DEFAULT '{}',
+            max_users INTEGER,
+            max_assessments INTEGER,
+            max_candidates INTEGER,
+            subscription_tier VARCHAR(50) DEFAULT 'free' NOT NULL,
+            subscription_expires_at TIMESTAMP WITH TIME ZONE,
+            is_active BOOLEAN DEFAULT true NOT NULL,
+            is_trial BOOLEAN DEFAULT false NOT NULL,
+            owner_id INTEGER REFERENCES users(id),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+    
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tenants_tenant_id ON tenants(tenant_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tenants_name ON tenants(name)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tenants_domain ON tenants(domain)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tenants_is_active ON tenants(is_active)")
+    
+    # Create system_incidents table (superadmin)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS system_incidents (
+            id SERIAL PRIMARY KEY,
+            incident_id VARCHAR(100) NOT NULL UNIQUE,
+            title VARCHAR(500) NOT NULL,
+            description TEXT NOT NULL,
+            incident_type VARCHAR(100) NOT NULL,
+            severity VARCHAR(20) NOT NULL,
+            status VARCHAR(50) DEFAULT 'open' NOT NULL,
+            affected_users INTEGER DEFAULT 0 NOT NULL,
+            affected_tenants JSON DEFAULT '[]',
+            affected_services JSON DEFAULT '[]',
+            detected_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            resolved_at TIMESTAMP WITH TIME ZONE,
+            assigned_to INTEGER REFERENCES users(id),
+            reported_by INTEGER REFERENCES users(id),
+            resolution_notes TEXT,
+            root_cause TEXT,
+            error_logs JSON DEFAULT '{}',
+            metrics JSON DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+    
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_incidents_incident_id ON system_incidents(incident_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_incidents_incident_type ON system_incidents(incident_type)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_incidents_severity ON system_incidents(severity)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_incidents_status ON system_incidents(status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_incidents_severity_status ON system_incidents(severity, status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_incidents_detected_at ON system_incidents(detected_at)")
+    
+    # Create system_metrics table (superadmin)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS system_metrics (
+            id SERIAL PRIMARY KEY,
+            metric_id VARCHAR(100) NOT NULL UNIQUE,
+            metric_name VARCHAR(100) NOT NULL,
+            metric_type VARCHAR(50) NOT NULL,
+            value FLOAT NOT NULL,
+            unit VARCHAR(20) NOT NULL,
+            service VARCHAR(100),
+            tenant_id VARCHAR(100) REFERENCES tenants(tenant_id),
+            measured_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            tags JSON DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+    
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_metric_id ON system_metrics(metric_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_metric_name ON system_metrics(metric_name)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_service ON system_metrics(service)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_tenant_id ON system_metrics(tenant_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_measured_at ON system_metrics(measured_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_name_measured ON system_metrics(metric_name, measured_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_system_metrics_service_measured ON system_metrics(service, measured_at)")
+    
+    # Create feature_flags table (superadmin)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS feature_flags (
+            id SERIAL PRIMARY KEY,
+            flag_id VARCHAR(100) NOT NULL UNIQUE,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            description TEXT NOT NULL,
+            is_enabled BOOLEAN DEFAULT false NOT NULL,
+            rollout_percentage INTEGER DEFAULT 0 NOT NULL,
+            allowed_tenants JSON DEFAULT '[]',
+            allowed_users JSON DEFAULT '[]',
+            config JSON DEFAULT '{}',
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+    
+    op.execute("CREATE INDEX IF NOT EXISTS ix_feature_flags_flag_id ON feature_flags(flag_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_feature_flags_name ON feature_flags(name)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_feature_flags_is_enabled ON feature_flags(is_enabled)")
 
 
 def downgrade() -> None:
     """Drop extended workflow tables."""
+    op.execute("DROP TABLE IF EXISTS feature_flags CASCADE")
+    op.execute("DROP TABLE IF EXISTS system_metrics CASCADE")
+    op.execute("DROP TABLE IF EXISTS system_incidents CASCADE")
+    op.execute("DROP TABLE IF EXISTS tenants CASCADE")
+    op.execute("DROP TABLE IF EXISTS audit_logs CASCADE")
     op.execute("DROP TABLE IF EXISTS application_notes CASCADE")
     op.execute("DROP TABLE IF EXISTS notifications CASCADE")
     op.execute("DROP TABLE IF EXISTS proctoring_events CASCADE")

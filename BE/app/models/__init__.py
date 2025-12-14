@@ -22,8 +22,8 @@ from app.db.models import (
     AdminSettings,
 )
 
-# Import extended models for recruiter/interviewer workflows
-from app.db.extended_models import (
+# Import extended models for recruiter/interviewer and superadmin workflows (merged into models.py)
+from app.db.models import (
     JobRequisition,
     JobRequisitionStatus,
     InterviewSession,
@@ -34,6 +34,13 @@ from app.db.extended_models import (
     Notification,
     NotificationType,
     ApplicationNote,
+    # Superadmin models
+    AuditLog,
+    AuditLogAction,
+    Tenant,
+    SystemIncident,
+    SystemMetric,
+    FeatureFlag,
 )
 
 # Import Pydantic schemas
@@ -114,6 +121,21 @@ from app.models.schemas import (
     # Application Note schemas
     ApplicationNoteCreate,
     ApplicationNoteResponse,
+    
+    # Superadmin schemas
+    AuditLogCreate,
+    AuditLogResponse,
+    TenantCreate,
+    TenantUpdate,
+    TenantResponse,
+    SystemIncidentCreate,
+    SystemIncidentUpdate,
+    SystemIncidentResponse,
+    SystemMetricCreate,
+    SystemMetricResponse,
+    FeatureFlagCreate,
+    FeatureFlagUpdate,
+    FeatureFlagResponse,
 )
 
 __all__ = [
@@ -148,6 +170,14 @@ __all__ = [
     "Notification",
     "NotificationType",
     "ApplicationNote",
+    
+    # Superadmin Models
+    "AuditLog",
+    "AuditLogAction",
+    "Tenant",
+    "SystemIncident",
+    "SystemMetric",
+    "FeatureFlag",
     
     # Pydantic Schemas
     "FieldError",
@@ -219,4 +249,19 @@ __all__ = [
     # Application Note schemas
     "ApplicationNoteCreate",
     "ApplicationNoteResponse",
+    
+    # Superadmin schemas
+    "AuditLogCreate",
+    "AuditLogResponse",
+    "TenantCreate",
+    "TenantUpdate",
+    "TenantResponse",
+    "SystemIncidentCreate",
+    "SystemIncidentUpdate",
+    "SystemIncidentResponse",
+    "SystemMetricCreate",
+    "SystemMetricResponse",
+    "FeatureFlagCreate",
+    "FeatureFlagUpdate",
+    "FeatureFlagResponse",
 ]

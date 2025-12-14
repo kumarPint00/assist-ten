@@ -726,3 +726,203 @@ class ApplicationNoteResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
+# ============ SUPERADMIN SCHEMAS ============
+
+class AuditLogCreate(BaseModel):
+    """Request to create audit log entry."""
+    action: str  # create, update, delete, login, etc.
+    entity_type: str
+    entity_id: Optional[str] = None
+    description: str
+    changes: dict = {}
+    severity: str = "info"
+
+
+class AuditLogResponse(BaseModel):
+    """Response with audit log details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    log_id: str
+    user_id: Optional[int]
+    user_email: Optional[str]
+    user_role: Optional[str]
+    action: str
+    entity_type: str
+    entity_id: Optional[str]
+    description: str
+    changes: dict
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    request_id: Optional[str]
+    severity: str
+    created_at: datetime
+
+
+class TenantCreate(BaseModel):
+    """Request to create a new tenant."""
+    name: str
+    domain: Optional[str] = None
+    settings: dict = {}
+    features_enabled: dict = {}
+    max_users: Optional[int] = None
+    max_assessments: Optional[int] = None
+    max_candidates: Optional[int] = None
+    subscription_tier: str = "free"
+    owner_id: Optional[int] = None
+
+
+class TenantUpdate(BaseModel):
+    """Request to update tenant."""
+    name: Optional[str] = None
+    domain: Optional[str] = None
+    settings: Optional[dict] = None
+    features_enabled: Optional[dict] = None
+    max_users: Optional[int] = None
+    max_assessments: Optional[int] = None
+    max_candidates: Optional[int] = None
+    subscription_tier: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_trial: Optional[bool] = None
+
+
+class TenantResponse(BaseModel):
+    """Response with tenant details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    tenant_id: str
+    name: str
+    domain: Optional[str]
+    settings: dict
+    features_enabled: dict
+    max_users: Optional[int]
+    max_assessments: Optional[int]
+    max_candidates: Optional[int]
+    subscription_tier: str
+    subscription_expires_at: Optional[datetime]
+    is_active: bool
+    is_trial: bool
+    owner_id: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+
+class SystemIncidentCreate(BaseModel):
+    """Request to create system incident."""
+    title: str
+    description: str
+    incident_type: str  # outage, bug, security, performance
+    severity: str  # low, medium, high, critical
+    affected_users: int = 0
+    affected_tenants: List[str] = []
+    affected_services: List[str] = []
+    detected_at: datetime
+    assigned_to: Optional[int] = None
+
+
+class SystemIncidentUpdate(BaseModel):
+    """Request to update system incident."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None  # open, investigating, resolved, closed
+    assigned_to: Optional[int] = None
+    resolution_notes: Optional[str] = None
+    root_cause: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+
+
+class SystemIncidentResponse(BaseModel):
+    """Response with system incident details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    incident_id: str
+    title: str
+    description: str
+    incident_type: str
+    severity: str
+    status: str
+    affected_users: int
+    affected_tenants: List[str]
+    affected_services: List[str]
+    detected_at: datetime
+    resolved_at: Optional[datetime]
+    assigned_to: Optional[int]
+    reported_by: Optional[int]
+    resolution_notes: Optional[str]
+    root_cause: Optional[str]
+    error_logs: dict
+    metrics: dict
+    created_at: datetime
+    updated_at: datetime
+
+
+class SystemMetricCreate(BaseModel):
+    """Request to record system metric."""
+    metric_name: str
+    metric_type: str  # gauge, counter, histogram
+    value: float
+    unit: str  # percent, ms, count, bytes
+    service: Optional[str] = None
+    tenant_id: Optional[str] = None
+    measured_at: datetime
+    tags: dict = {}
+
+
+class SystemMetricResponse(BaseModel):
+    """Response with system metric details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    metric_id: str
+    metric_name: str
+    metric_type: str
+    value: float
+    unit: str
+    service: Optional[str]
+    tenant_id: Optional[str]
+    measured_at: datetime
+    tags: dict
+    created_at: datetime
+
+
+class FeatureFlagCreate(BaseModel):
+    """Request to create feature flag."""
+    name: str
+    description: str
+    is_enabled: bool = False
+    rollout_percentage: int = 0
+    allowed_tenants: List[str] = []
+    allowed_users: List[int] = []
+    config: dict = {}
+
+
+class FeatureFlagUpdate(BaseModel):
+    """Request to update feature flag."""
+    description: Optional[str] = None
+    is_enabled: Optional[bool] = None
+    rollout_percentage: Optional[int] = None
+    allowed_tenants: Optional[List[str]] = None
+    allowed_users: Optional[List[int]] = None
+    config: Optional[dict] = None
+
+
+class FeatureFlagResponse(BaseModel):
+    """Response with feature flag details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    flag_id: str
+    name: str
+    description: str
+    is_enabled: bool
+    rollout_percentage: int
+    allowed_tenants: List[str]
+    allowed_users: List[int]
+    config: dict
+    created_by: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
