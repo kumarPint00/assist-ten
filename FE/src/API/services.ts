@@ -695,6 +695,36 @@ export const superadminService = {
   },
 };
 
+// Admin client
+export const adminService = {
+  listRequisitions: async (status?: string, is_published?: boolean) => {
+    const params = new URLSearchParams({ ...(status ? { status } : {}), ...(is_published !== undefined ? { is_published: String(is_published) } : {}) });
+    const response = await apiClient.get(`/admin/requisitions?${params.toString()}`);
+    return response.data;
+  },
+
+  updateRequisitionStatus: async (requisitionId: string, payload: { status?: string; is_published?: boolean }) => {
+    const response = await apiClient.patch(`/admin/requisitions/${requisitionId}/status`, payload);
+    return response.data;
+  },
+
+  listApplications: async (status?: string) => {
+    const params = new URLSearchParams({ ...(status ? { status } : {}) });
+    const response = await apiClient.get(`/admin/applications?${params.toString()}`);
+    return response.data;
+  },
+
+  updateApplicationStatus: async (applicationId: string, payload: { status: string; note?: string }) => {
+    const response = await apiClient.patch(`/admin/applications/${applicationId}/status`, payload);
+    return response.data;
+  },
+
+  bulkNotifications: async (payload: any) => {
+    const response = await apiClient.post('/admin/notifications/bulk', payload);
+    return response.data;
+  },
+};
+
 export const skillsService = {
   getSkillSuggestions: async (query: string): Promise<string[]> => {
     const response = await apiClient.get<string[]>(
