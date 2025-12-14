@@ -29,6 +29,7 @@ from app.core.error_handlers import validation_error_handler, ERROR_CODES
 from app.api.mcq_generation import router as mcq_generation_router
 from app.api.upload_jd import router as upload_router
 from app.api import auth, users, admin, dashboard, test_sessions
+from app.api import recruiter, interviewer, proctoring, notifications, superadmin
 from app.api.questionset_tests import router as questionset_tests_router
 from app.api.subskills import router as subskill_router
 from app.api.candidates import router as candidates_router
@@ -329,6 +330,11 @@ app.include_router(assessments_router, tags=["Assessments"])
 app.include_router(skills_router, tags=["skills-roles"])
 app.include_router(admin.router, prefix=settings.API_V1_PREFIX, tags=["Admin"])
 app.include_router(admin_skill_extraction_router, tags=["Admin Skill Extraction"])
+app.include_router(recruiter.router, prefix=settings.API_V1_PREFIX, tags=["Recruiter"])
+app.include_router(interviewer.router, prefix=settings.API_V1_PREFIX, tags=["Interviewer"])
+app.include_router(proctoring.router, prefix=settings.API_V1_PREFIX, tags=["Proctoring"])
+app.include_router(notifications.router, prefix=settings.API_V1_PREFIX, tags=["Notifications"])
+app.include_router(superadmin.router, prefix=settings.API_V1_PREFIX, tags=["Superadmin"])
 
 # Include recommended courses router if available
 if has_recommended_courses:
