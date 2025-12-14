@@ -74,6 +74,10 @@ const LoginContainer = () => {
       navigate(`/candidate?${query}`);
       return;
     }
+    if (values.email === "recruiter@assist-ten.com") {
+      navigate("/recruiter");
+      return;
+    }
     // Determine if user is admin via backend
     try {
       const user = await userService.getCurrentUser();
@@ -82,6 +86,8 @@ const LoginContainer = () => {
         navigate('/admin/super');
       } else if (role === 'admin') {
         navigate('/admin/dashboard');
+      } else if (role === 'recruiter') {
+        navigate('/recruiter');
       } else {
         const candidate = candidateUsers.find((candidate) => candidate.email === values.email);
         if (candidate) {
@@ -100,6 +106,10 @@ const LoginContainer = () => {
       // Fallback to static check
       if (isAdmin(values.email)) {
         navigate("/admin/dashboard");
+        return;
+      }
+      if (values.email === "recruiter@assist-ten.com") {
+        navigate("/recruiter");
         return;
       }
       const candidate = candidateUsers.find((candidate) => candidate.email === values.email);

@@ -442,3 +442,287 @@ class SkillMatchRecord(BaseModel):
     provider: Optional[str]
     created_at: datetime
 
+
+# ============ JOB REQUISITION SCHEMAS ============
+
+class JobRequisitionCreate(BaseModel):
+    """Request to create a new job requisition."""
+    title: str
+    description: str
+    department: Optional[str] = None
+    location: Optional[str] = None
+    employment_type: str  # full-time, part-time, contract
+    required_skills: dict = {}
+    experience_level: str
+    min_experience_years: Optional[int] = None
+    max_experience_years: Optional[int] = None
+    min_salary: Optional[float] = None
+    max_salary: Optional[float] = None
+    currency: str = "USD"
+    positions_available: int = 1
+    jd_id: Optional[str] = None
+    assessment_id: Optional[str] = None
+    hiring_manager_id: Optional[int] = None
+
+
+class JobRequisitionUpdate(BaseModel):
+    """Request to update job requisition."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    department: Optional[str] = None
+    location: Optional[str] = None
+    employment_type: Optional[str] = None
+    required_skills: Optional[dict] = None
+    experience_level: Optional[str] = None
+    min_experience_years: Optional[int] = None
+    max_experience_years: Optional[int] = None
+    min_salary: Optional[float] = None
+    max_salary: Optional[float] = None
+    status: Optional[str] = None
+    is_published: Optional[bool] = None
+    closes_at: Optional[datetime] = None
+
+
+class JobRequisitionResponse(BaseModel):
+    """Response with job requisition details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    requisition_id: str
+    title: str
+    description: str
+    department: Optional[str]
+    location: Optional[str]
+    employment_type: str
+    required_skills: dict
+    experience_level: str
+    min_experience_years: Optional[int]
+    max_experience_years: Optional[int]
+    min_salary: Optional[float]
+    max_salary: Optional[float]
+    currency: str
+    positions_available: int
+    positions_filled: int
+    status: str
+    is_published: bool
+    published_at: Optional[datetime]
+    closes_at: Optional[datetime]
+    total_applicants: int
+    total_interviewed: int
+    total_hired: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============ INTERVIEW SESSION SCHEMAS ============
+
+class InterviewSessionCreate(BaseModel):
+    """Request to create/schedule an interview."""
+    candidate_id: int
+    requisition_id: Optional[str] = None
+    assessment_application_id: Optional[str] = None
+    interview_type: str  # technical, behavioral, cultural, panel
+    interview_mode: str  # video, phone, in-person, ai
+    scheduled_at: datetime
+    duration_minutes: int = 60
+    timezone: str = "UTC"
+    additional_interviewers: List[int] = []
+    preparation_notes: Optional[str] = None
+    question_guide: dict = {}
+    meeting_link: Optional[str] = None
+    meeting_room: Optional[str] = None
+
+
+class InterviewSessionUpdate(BaseModel):
+    """Request to update interview session."""
+    scheduled_at: Optional[datetime] = None
+    duration_minutes: Optional[int] = None
+    status: Optional[str] = None
+    preparation_notes: Optional[str] = None
+    meeting_link: Optional[str] = None
+    meeting_room: Optional[str] = None
+    meeting_notes: Optional[str] = None
+    cancellation_reason: Optional[str] = None
+
+
+class InterviewSessionResponse(BaseModel):
+    """Response with interview session details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    interview_id: str
+    interview_type: str
+    interview_mode: str
+    candidate_id: int
+    requisition_id: Optional[str]
+    assessment_application_id: Optional[str]
+    scheduled_at: datetime
+    duration_minutes: int
+    timezone: str
+    interviewer_id: int
+    additional_interviewers: List[int]
+    status: str
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    actual_duration_minutes: Optional[int]
+    preparation_notes: Optional[str]
+    question_guide: dict
+    meeting_link: Optional[str]
+    meeting_room: Optional[str]
+    meeting_notes: Optional[str]
+    cancellation_reason: Optional[str]
+    reminder_sent: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============ INTERVIEW FEEDBACK SCHEMAS ============
+
+class InterviewFeedbackCreate(BaseModel):
+    """Request to submit interview feedback."""
+    interview_id: str
+    overall_rating: float
+    recommendation: str  # strong_hire, hire, maybe, no_hire
+    technical_skills_rating: Optional[float] = None
+    communication_rating: Optional[float] = None
+    problem_solving_rating: Optional[float] = None
+    culture_fit_rating: Optional[float] = None
+    skills_evaluated: dict = {}
+    strengths: Optional[str] = None
+    weaknesses: Optional[str] = None
+    detailed_notes: Optional[str] = None
+    questions_asked: List[str] = []
+    requires_second_round: bool = False
+    follow_up_notes: Optional[str] = None
+
+
+class InterviewFeedbackResponse(BaseModel):
+    """Response with interview feedback details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    feedback_id: str
+    interview_id: str
+    interviewer_id: int
+    overall_rating: float
+    recommendation: str
+    technical_skills_rating: Optional[float]
+    communication_rating: Optional[float]
+    problem_solving_rating: Optional[float]
+    culture_fit_rating: Optional[float]
+    skills_evaluated: dict
+    strengths: Optional[str]
+    weaknesses: Optional[str]
+    detailed_notes: Optional[str]
+    questions_asked: List[str]
+    requires_second_round: bool
+    follow_up_notes: Optional[str]
+    submitted_at: datetime
+    is_final: bool
+    created_at: datetime
+
+
+# ============ PROCTORING EVENT SCHEMAS ============
+
+class ProctoringEventCreate(BaseModel):
+    """Request to log a proctoring event."""
+    test_session_id: str
+    event_type: str
+    severity: str  # low, medium, high, critical
+    duration_seconds: Optional[int] = None
+    question_id: Optional[int] = None
+    snapshot_url: Optional[str] = None
+    metadata: dict = {}
+
+
+class ProctoringEventResponse(BaseModel):
+    """Response with proctoring event details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    event_id: str
+    test_session_id: str
+    event_type: str
+    severity: str
+    detected_at: datetime
+    duration_seconds: Optional[int]
+    question_id: Optional[int]
+    snapshot_url: Optional[str]
+    metadata: dict
+    reviewed: bool
+    reviewed_by: Optional[int]
+    reviewed_at: Optional[datetime]
+    reviewer_notes: Optional[str]
+    flagged: bool
+    created_at: datetime
+
+
+class ProctoringEventReview(BaseModel):
+    """Request to review a proctoring event."""
+    reviewer_notes: Optional[str] = None
+    flagged: bool = False
+
+
+# ============ NOTIFICATION SCHEMAS ============
+
+class NotificationCreate(BaseModel):
+    """Request to create a notification."""
+    user_id: int
+    notification_type: str  # system, assessment, interview, application, proctoring
+    title: str
+    message: str
+    related_entity_type: Optional[str] = None
+    related_entity_id: Optional[str] = None
+    action_url: Optional[str] = None
+    priority: str = "normal"
+
+
+class NotificationResponse(BaseModel):
+    """Response with notification details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    notification_id: str
+    user_id: int
+    notification_type: str
+    title: str
+    message: str
+    related_entity_type: Optional[str]
+    related_entity_id: Optional[str]
+    action_url: Optional[str]
+    is_read: bool
+    read_at: Optional[datetime]
+    is_archived: bool
+    priority: str
+    created_at: datetime
+
+
+class NotificationMarkRead(BaseModel):
+    """Request to mark notification as read."""
+    is_read: bool = True
+
+
+# ============ APPLICATION NOTE SCHEMAS ============
+
+class ApplicationNoteCreate(BaseModel):
+    """Request to add a note to an application."""
+    application_id: str
+    note_text: str
+    note_type: str = "general"  # general, follow_up, red_flag
+    is_private: bool = False
+
+
+class ApplicationNoteResponse(BaseModel):
+    """Response with application note details."""
+    model_config = {"from_attributes": True}
+    
+    id: int
+    note_id: str
+    application_id: str
+    author_id: int
+    note_text: str
+    note_type: str
+    is_private: bool
+    created_at: datetime
+    updated_at: datetime
+

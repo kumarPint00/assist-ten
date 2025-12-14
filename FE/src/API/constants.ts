@@ -16,7 +16,9 @@ export const HTTP_DELETE = "delete";
 export const allowedUsers = [
   "admin@assist-ten.com",
   "pintu@assist-ten.com",
-  "superadmin@assist-ten.com"
+  "superadmin@assist-ten.com",
+  "recruiter@assist-ten.com",
+  "interviewer@assist-ten.com"
 ];
 
 export const candidateUsers = [
