@@ -448,6 +448,253 @@ export const uploadService = {
   },
 };
 
+// ============ RECRUITER / INTERVIEWER / PROCTORING / NOTIFICATIONS TYPES & SERVICES ============
+
+export interface JobRequisitionCreateRequest {
+  title: string;
+  description: string;
+  department?: string;
+  location?: string;
+  employment_type: string;
+  required_skills?: Record<string, string>;
+  experience_level: string;
+  min_experience_years?: number;
+  max_experience_years?: number;
+  min_salary?: number;
+  max_salary?: number;
+  currency?: string;
+  positions_available?: number;
+  jd_id?: string;
+  assessment_id?: string;
+  hiring_manager_id?: number;
+}
+
+export interface JobRequisitionResponseType {
+  id: number;
+  requisition_id: string;
+  title: string;
+  description: string;
+  department?: string;
+  location?: string;
+  employment_type: string;
+  required_skills: Record<string, string>;
+  experience_level: string;
+  min_experience_years?: number;
+  max_experience_years?: number;
+  min_salary?: number;
+  max_salary?: number;
+  currency: string;
+  positions_available: number;
+  positions_filled: number;
+  status: string;
+  is_published: boolean;
+  published_at?: string;
+  closes_at?: string;
+  total_applicants: number;
+  total_interviewed: number;
+  total_hired: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const recruiterService = {
+  createRequisition: async (data: JobRequisitionCreateRequest): Promise<JobRequisitionResponseType> => {
+    const response = await apiClient.post<JobRequisitionResponseType>('/recruiter/requisitions', data);
+    return response.data;
+  },
+
+  listRequisitions: async (page = 1, per_page = 20): Promise<JobRequisitionResponseType[]> => {
+    const response = await apiClient.get<JobRequisitionResponseType[]>(`/recruiter/requisitions?page=${page}&per_page=${per_page}`);
+    return response.data;
+  },
+
+  getRequisition: async (requisitionId: string): Promise<JobRequisitionResponseType> => {
+    const response = await apiClient.get<JobRequisitionResponseType>(`/recruiter/requisitions/${requisitionId}`);
+    return response.data;
+  },
+
+  updateRequisition: async (requisitionId: string, data: Partial<JobRequisitionCreateRequest>): Promise<JobRequisitionResponseType> => {
+    const response = await apiClient.patch<JobRequisitionResponseType>(`/recruiter/requisitions/${requisitionId}`, data);
+    return response.data;
+  },
+
+  publishRequisition: async (requisitionId: string): Promise<{ message: string }> => {
+    const response = await apiClient.post(`/recruiter/requisitions/${requisitionId}/publish`);
+    return response.data;
+  },
+
+  addApplicationNote: async (applicationId: string, note: { note_text: string; note_type?: string; is_private?: boolean }) => {
+    const response = await apiClient.post(`/recruiter/applications/${applicationId}/notes`, note);
+    return response.data;
+  },
+
+  listApplicationNotes: async (applicationId: string) => {
+    const response = await apiClient.get(`/recruiter/applications/${applicationId}/notes`);
+    return response.data;
+  },
+};
+
+// Interviewer types & service
+export interface InterviewSessionCreateRequest {
+  candidate_id: number;
+  requisition_id?: string;
+  assessment_application_id?: string;
+  interview_type: string;
+  interview_mode: string;
+  scheduled_at: string;
+  duration_minutes?: number;
+  timezone?: string;
+  additional_interviewers?: number[];
+  preparation_notes?: string;
+  question_guide?: Record<string, any>;
+  meeting_link?: string;
+  meeting_room?: string;
+}
+
+export interface InterviewSessionResponseType {
+  id: number;
+  interview_id: string;
+  interview_type: string;
+  interview_mode: string;
+  candidate_id: number;
+  requisition_id?: string;
+  assessment_application_id?: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  timezone: string;
+  interviewer_id: number;
+  additional_interviewers: number[];
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const interviewerService = {
+  scheduleInterview: async (data: InterviewSessionCreateRequest): Promise<InterviewSessionResponseType> => {
+    const response = await apiClient.post<InterviewSessionResponseType>('/interviewer/interviews', data);
+    return response.data;
+  },
+
+  listMyInterviews: async (): Promise<InterviewSessionResponseType[]> => {
+    const response = await apiClient.get<InterviewSessionResponseType[]>('/interviewer/interviews');
+    return response.data;
+  },
+
+  getInterview: async (id: string): Promise<InterviewSessionResponseType> => {
+    const response = await apiClient.get<InterviewSessionResponseType>(`/interviewer/interviews/${id}`);
+    return response.data;
+  },
+
+  updateInterview: async (id: string, data: Partial<InterviewSessionCreateRequest>): Promise<InterviewSessionResponseType> => {
+    const response = await apiClient.patch<InterviewSessionResponseType>(`/interviewer/interviews/${id}`, data);
+    return response.data;
+  },
+
+  startInterview: async (id: string) => {
+    const response = await apiClient.post(`/interviewer/interviews/${id}/start`);
+    return response.data;
+  },
+
+  completeInterview: async (id: string) => {
+    const response = await apiClient.post(`/interviewer/interviews/${id}/complete`);
+    return response.data;
+  },
+
+  submitFeedback: async (data: any) => {
+    const response = await apiClient.post('/interviewer/feedback', data);
+    return response.data;
+  },
+
+  getFeedback: async (interviewId: string) => {
+    const response = await apiClient.get(`/interviewer/feedback/${interviewId}`);
+    return response.data;
+  },
+};
+
+// Proctoring
+export const proctoringService = {
+  logEvent: async (data: any) => {
+    const response = await apiClient.post('/proctoring/events', data);
+    return response.data;
+  },
+
+  listEvents: async () => {
+    const response = await apiClient.get('/proctoring/events');
+    return response.data;
+  },
+
+  reviewEvent: async (eventId: string, review: { reviewer_notes?: string; flagged?: boolean }) => {
+    const response = await apiClient.patch(`/proctoring/events/${eventId}/review`, review);
+    return response.data;
+  },
+};
+
+// Notifications
+export const notificationService = {
+  listMyNotifications: async () => {
+    const response = await apiClient.get('/notifications/');
+    return response.data;
+  },
+
+  markRead: async (notificationId: string, isRead = true) => {
+    const response = await apiClient.patch(`/notifications/${notificationId}/read`, { is_read: isRead });
+    return response.data;
+  },
+
+  archiveNotification: async (notificationId: string) => {
+    const response = await apiClient.delete(`/notifications/${notificationId}`);
+    return response.data;
+  },
+
+  createNotification: async (payload: any) => {
+    const response = await apiClient.post('/notifications', payload);
+    return response.data;
+  },
+};
+
+// Superadmin services (basic)
+export const superadminService = {
+  listAuditLogs: async (limit = 100) => {
+    const response = await apiClient.get(`/superadmin/audit-logs?limit=${limit}`);
+    return response.data;
+  },
+
+  createTenant: async (payload: any) => {
+    const response = await apiClient.post('/superadmin/tenants', payload);
+    return response.data;
+  },
+
+  updateTenant: async (tenantId: string, payload: any) => {
+    const response = await apiClient.patch(`/superadmin/tenants/${tenantId}`, payload);
+    return response.data;
+  },
+
+  createIncident: async (payload: any) => {
+    const response = await apiClient.post('/superadmin/incidents', payload);
+    return response.data;
+  },
+
+  updateIncident: async (incidentId: string, payload: any) => {
+    const response = await apiClient.patch(`/superadmin/incidents/${incidentId}`, payload);
+    return response.data;
+  },
+
+  recordMetric: async (payload: any) => {
+    const response = await apiClient.post('/superadmin/metrics', payload);
+    return response.data;
+  },
+
+  createFlag: async (payload: any) => {
+    const response = await apiClient.post('/superadmin/flags', payload);
+    return response.data;
+  },
+
+  updateFlag: async (flagId: string, payload: any) => {
+    const response = await apiClient.patch(`/superadmin/flags/${flagId}`, payload);
+    return response.data;
+  },
+};
+
 export const skillsService = {
   getSkillSuggestions: async (query: string): Promise<string[]> => {
     const response = await apiClient.get<string[]>(
