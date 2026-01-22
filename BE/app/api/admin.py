@@ -17,6 +17,8 @@ from app.db.models import (
     Assessment,
     Candidate,
 )
+from app.db.models import ProctoringEvent
+from app.models.schemas import ProctoringEventAdminResponse, ProctoringEventResponse
 from app.db.models import JobRequisition, Notification
 from app.models.schemas import ApplicationStatusUpdate, RequisitionStatusUpdate, BulkNotificationCreate
 from app.core.dependencies import get_current_user
@@ -249,6 +251,57 @@ async def admin_list_applications(status: Optional[str] = None, db: AsyncSession
     result = await db.execute(stmt)
     rows = result.scalars().all()
     return [r.__dict__ for r in rows]
+
+
+
+@router.get("/admin/proctoring/events", response_model=List[ProctoringEventAdminResponse])
+async def admin_list_proctoring_events(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin-scoped listing of proctoring events, enriched with test session info."""
+    await check_admin(current_user)
+    # Join TestSession to provide context for admins
+    from sqlalchemy import select, desc
+    from app.db.models import TestSession
+
+    stmt = select(ProctoringEvent, TestSession).outerjoin(TestSession, TestSession.session_id == ProctoringEvent.test_session_id).order_by(desc(ProctoringEvent.detected_at)).limit(200)
+    result = await db.execute(stmt)
+    rows = result.all()
+    out = []
+    for evt, session in rows:
+        # Build response safely to avoid Pydantic validation errors if DB fields are unexpected
+        try:
+            base = ProctoringEventResponse.from_orm(evt).dict(by_alias=True)
+        except Exception:
+            base = {
+                "id": getattr(evt, 'id', None),
+                "event_id": getattr(evt, 'event_id', None),
+                "test_session_id": getattr(evt, 'test_session_id', None),
+                "event_type": getattr(evt, 'event_type', None),
+                "severity": getattr(evt, 'severity', None),
+                "detected_at": getattr(evt, 'detected_at', None),
+                "duration_seconds": getattr(evt, 'duration_seconds', None),
+                "question_id": getattr(evt, 'question_id', None),
+                "snapshot_url": getattr(evt, 'snapshot_url', None),
+                "metadata": getattr(evt, 'event_metadata', {}) if isinstance(getattr(evt, 'event_metadata', {}), dict) else {},
+                "reviewed": getattr(evt, 'reviewed', False),
+                "reviewed_by": getattr(evt, 'reviewed_by', None),
+                "reviewed_at": getattr(evt, 'reviewed_at', None),
+                "reviewer_notes": getattr(evt, 'reviewer_notes', None),
+                "flagged": getattr(evt, 'flagged', False),
+                "created_at": getattr(evt, 'created_at', None),
+            }
+
+        base.update({
+            "test_session_id": base.get('test_session_id') or evt.test_session_id,
+            "test_session_candidate_name": getattr(session, 'candidate_name', None) if session else None,
+            "test_session_candidate_email": getattr(session, 'candidate_email', None) if session else None,
+            "test_session_job_title": getattr(session, 'job_title', None) if session else None,
+            "test_session_score_percentage": getattr(session, 'score_percentage', None) if session else None,
+        })
+        out.append(base)
+    return out
 
 
 @router.patch("/admin/applications/{application_id}/status")

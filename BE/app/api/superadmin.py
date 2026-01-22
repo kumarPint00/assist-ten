@@ -6,13 +6,15 @@ from sqlalchemy import select, desc
 from datetime import datetime
 
 from app.db.session import get_db
-from app.db.models import AuditLog, Tenant, SystemIncident, SystemMetric, FeatureFlag
+from app.db.models import AuditLog, Tenant, SystemIncident, SystemMetric, FeatureFlag, Candidate
+from app.db.models import InterviewSession
 from app.models.schemas import (
     AuditLogCreate, AuditLogResponse,
     TenantCreate, TenantUpdate, TenantResponse,
     SystemIncidentCreate, SystemIncidentUpdate, SystemIncidentResponse,
     SystemMetricCreate, SystemMetricResponse,
     FeatureFlagCreate, FeatureFlagUpdate, FeatureFlagResponse,
+    InterviewSessionResponse,
 )
 from app.core.dependencies import get_current_user
 from app.core.security import check_superadmin
@@ -154,6 +156,44 @@ async def list_incidents(limit: int = Query(100, le=1000), status: Optional[str]
     result = await db.execute(stmt)
     rows = result.scalars().all()
     return [SystemIncidentResponse.from_orm(r) for r in rows]
+
+
+@router.get("/interviews", response_model=List[InterviewSessionResponse])
+async def list_interviews(limit: int = Query(100, le=1000), status: Optional[str] = None, interview_type: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    """List interviews across the system (superadmin view)."""
+    await check_superadmin(current_user)
+    stmt = select(InterviewSession)
+    if status:
+        stmt = stmt.where(InterviewSession.status == status)
+    if interview_type:
+        stmt = stmt.where(InterviewSession.interview_type == interview_type)
+    stmt = stmt.order_by(desc(InterviewSession.scheduled_at)).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    out = []
+    for r in rows:
+        dto = InterviewSessionResponse.from_orm(r).model_dump()
+        # enrich with candidate name when possible
+        cand = None
+        try:
+            cres = await db.execute(select(Candidate).where(Candidate.id == r.candidate_id))
+            cand = cres.scalar_one_or_none()
+        except Exception:
+            cand = None
+        if cand:
+            dto["candidate_name"] = cand.full_name
+        out.append(dto)
+    return out
+
+
+@router.get("/interviews/{interview_id}", response_model=InterviewSessionResponse)
+async def get_interview(interview_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> InterviewSessionResponse:
+    await check_superadmin(current_user)
+    result = await db.execute(select(InterviewSession).where(InterviewSession.interview_id == interview_id))
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    return InterviewSessionResponse.from_orm(r)
 
 
 @router.get("/incidents/{incident_id}", response_model=SystemIncidentResponse)

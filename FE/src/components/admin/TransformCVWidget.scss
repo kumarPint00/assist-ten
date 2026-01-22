@@ -1,0 +1,47 @@
+.transform-cv-widget {
+  margin-top: 12px;
+  border-top: 1px solid #eef2ff;
+  padding-top: 12px;
+}
+.transform-cv-widget .widget-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.transform-cv-widget .file-inputs {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.transform-cv-widget .file-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.transform-cv-widget .file-label input[type="file"] {
+  margin-top: 6px;
+}
+.transform-cv-widget .options {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.transform-cv-widget .counts {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.transform-cv-widget .widget-result pre {
+  background: #f8fafc;
+  border: 1px solid #e6edf3;
+  padding: 10px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.transform-cv-widget .widget-error {
+  margin-top: 8px;
+  color: #b91c1c;
+}

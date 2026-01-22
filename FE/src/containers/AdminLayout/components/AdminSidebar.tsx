@@ -64,6 +64,9 @@ const AdminSidebar = () => {
           <NavLink to="/admin/skill-checker" className="admin-link">
             Skill Matching Checker
           </NavLink>
+          <NavLink to="/admin/transform-cv" className="admin-link">
+            Transform CV
+          </NavLink>
           <NavLink to="/admin/settings" className="admin-link">
             Settings
           </NavLink>

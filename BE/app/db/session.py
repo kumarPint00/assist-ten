@@ -58,10 +58,13 @@ async def init_db() -> None:
     """Initialize database - create all tables."""
     from app.db.base import Base
     
+    print("Initializing database...")
     async with engine.begin() as conn:
-        # In production, use Alembic migrations instead
-        # await conn.run_sync(Base.metadata.create_all)
-        pass
+        print("Creating all tables...")
+        
+        # Create all tables (use Alembic migrations in production)
+        await conn.run_sync(Base.metadata.create_all)
+        print("All tables created successfully.")
 
 
 async def close_db() -> None:

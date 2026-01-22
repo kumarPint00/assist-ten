@@ -91,6 +91,8 @@ async def simple_login(
     Returns:
         Access and refresh tokens
     """
+
+    print('request from simple login:', request)
     result = await db.execute(
         select(User).where(User.email == request.email)
     )

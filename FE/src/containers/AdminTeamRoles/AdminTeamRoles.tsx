@@ -68,7 +68,7 @@ const AdminTeamRoles = () => {
         name: u.full_name || u.name || u.email,
         email: u.email,
         role: (u.role || 'Viewer') as RoleOption,
-        status: u.is_active ? 'Active' : 'Suspended',
+        status: (u.is_active ? 'Active' : 'Suspended') as 'Active' | 'Pending' | 'Suspended',
       }));
       setUsers(mapped);
       closeModals();
@@ -89,7 +89,7 @@ const AdminTeamRoles = () => {
         name: u.full_name || u.name || u.email,
         email: u.email,
         role: (u.role || 'Viewer') as RoleOption,
-        status: u.is_active ? 'Active' : 'Suspended',
+        status: (u.is_active ? 'Active' : 'Suspended') as 'Active' | 'Pending' | 'Suspended',
       }));
       setUsers(mapped);
       closeModals();
@@ -119,7 +119,7 @@ const AdminTeamRoles = () => {
           name: u.full_name || u.name || u.email,
           email: u.email,
           role: (u.role || 'Viewer') as RoleOption,
-          status: u.is_active ? 'Active' : 'Suspended',
+          status: (u.is_active ? 'Active' : 'Suspended') as 'Active' | 'Pending' | 'Suspended',
         }));
         setUsers(mapped);
       } catch (err: any) {

@@ -245,6 +245,15 @@ class CandidateResponse(BaseModel):
     updated_at: datetime
 
 
+class TransformCVResponse(BaseModel):
+    success: bool
+    message: str
+    transformed_text: str
+    filtered_text: Optional[str] = None
+    redaction_counts: Optional[Dict[str, int]] = None
+    extracted_skills: Optional[List[str]] = None
+
+
 class CandidateNoteCreate(BaseModel):
     note_text: str
     note_type: Optional[str] = "general"
@@ -599,6 +608,7 @@ class InterviewSessionResponse(BaseModel):
     meeting_notes: Optional[str]
     cancellation_reason: Optional[str]
     reminder_sent: bool
+    candidate_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -706,6 +716,18 @@ class ProctoringEventReview(BaseModel):
     """Request to review a proctoring event."""
     reviewer_notes: Optional[str] = None
     flagged: bool = False
+
+
+class ProctoringEventAdminResponse(ProctoringEventResponse):
+    """Admin-facing proctoring event response with optional linked test session info."""
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+    # Flattened test session fields for convenience in admin UIs
+    test_session_id: Optional[str] = None
+    test_session_candidate_name: Optional[str] = None
+    test_session_candidate_email: Optional[str] = None
+    test_session_job_title: Optional[str] = None
+    test_session_score_percentage: Optional[float] = None
 
 
 # ============ NOTIFICATION SCHEMAS ============

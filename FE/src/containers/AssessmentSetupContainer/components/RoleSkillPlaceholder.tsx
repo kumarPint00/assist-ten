@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { skillsService } from "../../../API/services";
 import { FiX, FiCheck, FiAlertCircle, FiStar } from "react-icons/fi";
 import "./RoleSkillPlaceholder.scss";
 
@@ -21,13 +22,12 @@ interface Props {
   skillLevels?: Record<string, 'strong' | 'advance' | 'intermediate' | 'basic'>;
 }
 
-const SKILL_SUGGESTIONS = [
+const FALLBACK_SKILL_SUGGESTIONS = [
   "React",
   "TypeScript",
   "Node.js",
   "Python",
-  "FastAPI",
-  "SQLAlchemy",
+  "SQL",
   "PostgreSQL",
   "MongoDB",
   "AWS",
@@ -38,10 +38,6 @@ const SKILL_SUGGESTIONS = [
   "Machine Learning",
   "Data Science",
   "AI",
-  "Agentic AI",
-  "LangChain",
-  "GPT",
-  "Groq",
 ];
 
 const RoleSkillPlaceholder: React.FC<Props> = ({
@@ -64,6 +60,9 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
   const [tempSkill, setTempSkill] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [roleSuggestions, setRoleSuggestions] = useState<string[]>([]);
+  const [roleSuggestionsLoading, setRoleSuggestionsLoading] = useState(false);
   // Note: show more/less toggles have been removed — grouped sections display all skills
 
   const sortedSkills = useMemo(() => {
@@ -114,13 +113,26 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
   const handleSkillInput = (value: string) => {
     setTempSkill(value);
     if (value.trim().length > 0) {
-      const filtered = SKILL_SUGGESTIONS.filter(
-        (skill) =>
-          skill.toLowerCase().includes(value.toLowerCase()) &&
-          !skills.includes(skill)
-      );
-      setFilteredSuggestions(filtered);
-      setShowSuggestions(true);
+      // fetch suggestions from backend (debounce not necessary for small teams)
+      setSuggestionsLoading(true);
+      skillsService
+        .getSkillSuggestions(value)
+        .then((res) => {
+          const filtered = (res || []).filter((s: string) => !skills.includes(s));
+          setFilteredSuggestions(filtered);
+          setShowSuggestions(true);
+        })
+        .catch(() => {
+          // fallback to local list
+          const filtered = FALLBACK_SKILL_SUGGESTIONS.filter(
+            (skill) =>
+              skill.toLowerCase().includes(value.toLowerCase()) &&
+              !skills.includes(skill)
+          );
+          setFilteredSuggestions(filtered);
+          setShowSuggestions(true);
+        })
+        .finally(() => setSuggestionsLoading(false));
     } else {
       setShowSuggestions(false);
     }
@@ -199,8 +211,31 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
             className="form-input"
             value={role}
             placeholder="Enter or edit candidate role"
-            onChange={(e) => handleRoleChange(e.target.value)}
+            onChange={(e) => {
+              handleRoleChange(e.target.value);
+              const q = e.target.value;
+              if (q && q.length > 1) {
+                setRoleSuggestionsLoading(true);
+                skillsService
+                  .getRoleSuggestions(q)
+                  .then((res) => setRoleSuggestions(res || []))
+                  .catch(() => setRoleSuggestions([]))
+                  .finally(() => setRoleSuggestionsLoading(false));
+              } else {
+                setRoleSuggestions([]);
+              }
+            }}
           />
+          {/* Role suggestions dropdown */}
+          {roleSuggestions.length > 0 && (
+            <div className="role-suggestions-dropdown">
+              {roleSuggestions.map((r) => (
+                <div key={r} className="suggestion-item" onClick={() => handleRoleChange(r)}>
+                  {r}
+                </div>
+              ))}
+            </div>
+          )}
           {role && <FiCheck size={18} className="check-icon" />}
         </div>
 
@@ -248,17 +283,19 @@ const RoleSkillPlaceholder: React.FC<Props> = ({
           />
 
           {/* Suggestions Dropdown */}
-          {showSuggestions && filteredSuggestions.length > 0 && (
+          {showSuggestions && (
             <div className="suggestions-dropdown">
-              {filteredSuggestions.map((skill) => (
-                <div
-                  key={skill}
-                  className="suggestion-item"
-                  onClick={() => addSkill(skill)}
-                >
-                  {skill}
-                </div>
-              ))}
+              {suggestionsLoading ? (
+                <div className="suggestion-item disabled">Loading...</div>
+              ) : filteredSuggestions.length > 0 ? (
+                filteredSuggestions.map((skill) => (
+                  <div key={skill} className="suggestion-item" onClick={() => addSkill(skill)}>
+                    {skill}
+                  </div>
+                ))
+              ) : (
+                <div className="suggestion-item disabled">No suggestions</div>
+              )}
             </div>
           )}
         </div>

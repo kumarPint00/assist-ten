@@ -733,8 +733,19 @@ export const proctoringService = {
   },
 
   listEvents: async () => {
-    const response = await apiClient.get('/proctoring/events');
-    return response.data;
+    // Prefer the admin-scoped endpoint for dashboard views; fall back to public events if not available.
+    try {
+      const response = await apiClient.get('/admin/proctoring/events');
+      return response.data;
+    } catch (err: any) {
+      // If admin endpoint not available (404/403), fall back to public proctoring events
+      try {
+        const fallback = await apiClient.get('/proctoring/events');
+        return fallback.data;
+      } catch (err2) {
+        return [];
+      }
+    }
   },
 
   reviewEvent: async (eventId: string, review: { reviewer_notes?: string; flagged?: boolean }) => {
@@ -826,6 +837,17 @@ export const superadminService = {
 
   getIncident: async (incidentId: string) => {
     const response = await apiClient.get(`/superadmin/incidents/${incidentId}`);
+    return response.data;
+  },
+
+  listInterviews: async (limit = 100, status?: string, interview_type?: string) => {
+    const params = new URLSearchParams({ ...(status ? { status } : {}), ...(interview_type ? { interview_type } : {}), ...(limit ? { limit: String(limit) } : {}) });
+    const response = await apiClient.get(`/superadmin/interviews?${params.toString()}`);
+    return response.data;
+  },
+
+  getInterview: async (interviewId: string) => {
+    const response = await apiClient.get(`/superadmin/interviews/${interviewId}`);
     return response.data;
   },
 
@@ -922,6 +944,41 @@ export const adminService = {
     const response = await apiClient.get(`/admin/stats`);
     return response.data;
   },
+
+  transformCV: async (cv: File, jd: File, useLLM: boolean = false): Promise<any> => {
+    const fd = new FormData();
+    fd.append("cv_file", cv);
+    fd.append("jd_file", jd);
+    const response = await apiClient.post(`/admin/transform-cv?use_llm=${useLLM ? "true" : "false"}`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+  
+  parseCVSections: async (cvText: string): Promise<any> => {
+    const response = await apiClient.post(`/admin/parse-cv-sections`, { cv_text: cvText });
+    return response.data;
+  },
+  
+  rebuildCV: async (cvText: string, sectionsConfig: any): Promise<any> => {
+    const response = await apiClient.post(`/admin/rebuild-cv`, { cv_text: cvText, sections_config: sectionsConfig });
+    return response.data;
+  },
+  
+  formatCVAsDocx: async (cvText: string, cvData?: any): Promise<Blob> => {
+    const response = await apiClient.post(`/admin/format-cv-docx`, { cv_text: cvText, cv_data: cvData }, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+  
+  formatCVProfessionally: async (cvText: string, sectionsConfig?: any): Promise<Blob> => {
+    const response = await apiClient.post(`/admin/format-cv-professional`, { cv_text: cvText, sections_config: sectionsConfig }, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+  
   listAdmins: async (): Promise<any[]> => {
     const response = await apiClient.get(`/admin/users`);
     return response.data;

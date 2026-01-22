@@ -6,11 +6,11 @@ from sqlalchemy import select, desc
 from datetime import datetime
 
 from app.db.session import get_db
-from app.db.models import ProctoringEvent, User
-from app.models.schemas import ProctoringEventCreate, ProctoringEventResponse, ProctoringEventReview
+from app.db.models import ProctoringEvent, User, TestSession
+from app.models.schemas import ProctoringEventCreate, ProctoringEventResponse, ProctoringEventReview, ProctoringEventAdminResponse
 from app.core.dependencies import get_current_user
 
-router = APIRouter(prefix="/api/v1/proctoring", tags=["proctoring"])
+router = APIRouter(prefix="/proctoring", tags=["proctoring"])
 
 
 def _ensure_admin(user):
@@ -36,16 +36,58 @@ async def log_event(payload: ProctoringEventCreate, db: AsyncSession = Depends(g
     return ProctoringEventResponse.from_orm(evt)
 
 
-@router.get("/events", response_model=List[ProctoringEventResponse])
+def _serialize_event(evt: ProctoringEvent, session: TestSession | None) -> dict:
+    # Safely serialize a ProctoringEvent to a plain dict suitable for JSON responses.
+    # Some DB rows may have `metadata` column name conflicts; ensure `event_metadata` is a dict.
+    try:
+        base = ProctoringEventResponse.from_orm(evt).dict(by_alias=True)
+    except Exception:
+        # Fallback: build the dict manually to avoid Pydantic validation errors (e.g., when event_metadata is not a dict)
+        base = {
+            "id": getattr(evt, 'id', None),
+            "event_id": getattr(evt, 'event_id', None),
+            "test_session_id": getattr(evt, 'test_session_id', None),
+            "event_type": getattr(evt, 'event_type', None),
+            "severity": getattr(evt, 'severity', None),
+            "detected_at": getattr(evt, 'detected_at', None),
+            "duration_seconds": getattr(evt, 'duration_seconds', None),
+            "question_id": getattr(evt, 'question_id', None),
+            "snapshot_url": getattr(evt, 'snapshot_url', None),
+            # Ensure metadata is a dict
+            "metadata": getattr(evt, 'event_metadata', {}) if isinstance(getattr(evt, 'event_metadata', {}), dict) else {},
+            "reviewed": getattr(evt, 'reviewed', False),
+            "reviewed_by": getattr(evt, 'reviewed_by', None),
+            "reviewed_at": getattr(evt, 'reviewed_at', None),
+            "reviewer_notes": getattr(evt, 'reviewer_notes', None),
+            "flagged": getattr(evt, 'flagged', False),
+            "created_at": getattr(evt, 'created_at', None),
+        }
+
+    # Attach flattened test session fields for admin UIs
+    base.update({
+        "test_session_id": base.get('test_session_id') or evt.test_session_id,
+        "test_session_candidate_name": getattr(session, 'candidate_name', None) if session else None,
+        "test_session_candidate_email": getattr(session, 'candidate_email', None) if session else None,
+        "test_session_job_title": getattr(session, 'job_title', None) if session else None,
+        "test_session_score_percentage": getattr(session, 'score_percentage', None) if session else None,
+    })
+    return base
+
+
+@router.get("/events", response_model=List["ProctoringEventAdminResponse"])
 async def list_events(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     _ensure_admin(current_user)
-    stmt = select(ProctoringEvent).order_by(desc(ProctoringEvent.detected_at)).limit(100)
+    # Join TestSession to provide richer context to admin UIs
+    stmt = select(ProctoringEvent, TestSession).outerjoin(TestSession, TestSession.session_id == ProctoringEvent.test_session_id).order_by(desc(ProctoringEvent.detected_at)).limit(100)
     result = await db.execute(stmt)
-    events = result.scalars().all()
-    return [ProctoringEventResponse.from_orm(e) for e in events]
+    rows = result.all()
+    out = []
+    for evt, session in rows:
+        out.append(_serialize_event(evt, session))
+    return out
 
 
 @router.patch("/events/{event_id}/review")

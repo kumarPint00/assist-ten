@@ -2,6 +2,6 @@
 
 import AdminCVMatcher from '@/containers/AdminCVMatcher/AdminCVMatcher';
 
-export default function AdminSkillCheckerPage() {
+export default function TransformCVPage() {
   return <AdminCVMatcher />;
 }

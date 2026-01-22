@@ -20,6 +20,12 @@ const LoginContainer = () => {
     setValues((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && values.email) {
+      handleSubmit();
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (token) {
@@ -204,6 +210,7 @@ const LoginContainer = () => {
             fullWidth
             value={values.email}
             onChange={handleChange}
+            onKeyPress={handleKeyPress}
             className="input"
             sx={{
               '& .MuiOutlinedInput-root': {

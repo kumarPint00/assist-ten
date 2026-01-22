@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../../hooks/navigation";
 import { FiPlus, FiRefreshCw, FiAlertCircle, FiUsers, FiTrendingUp, FiCalendar, FiActivity, FiCheckCircle } from "react-icons/fi";
 import Toast from "../../components/Toast/Toast";
-import { assessmentService, dashboardService, userService } from "../../API/services";
+import TransformCVWidget from "../../components/admin/TransformCVWidget";
+import { assessmentService, dashboardService, userService, proctoringService } from "../../API/services";
 import type { Assessment, AdminDashboardActivityItem } from "../../API/services";
 import "./AdminDashboard.scss";
 
@@ -74,11 +75,7 @@ interface AlertEntry {
   timestamp: string;
 }
 
-const FLAGGED_ALERTS: AlertEntry[] = [
-  { candidate: "Maya Patel", job: "AI Research Engineer", reason: "Multiple tab/context switches", timestamp: "09:42 AM" },
-  { candidate: "Jordan Miles", job: "Product Data Scientist", reason: "Camera disconnected during tech", timestamp: "08:57 AM" },
-  { candidate: "Rhea Singh", job: "Platform Engineer", reason: "Background noise spike while answering", timestamp: "Yesterday" },
-];
+// Flagged alerts are now sourced from the backend proctoring events (see `proctoringService.listEvents`).
 
 const extractCandidateName = (description?: string, title?: string): string => {
   if (description) {
@@ -89,6 +86,16 @@ const extractCandidateName = (description?: string, title?: string): string => {
     return title;
   }
   return "Candidate";
+};
+
+export const mapProctoringEventsToAlerts = (events: any[] = []): AlertEntry[] => {
+  const flagged = (events || []).filter((e: any) => e.flagged === true || e.severity === 'high' || e.severity === 'critical');
+  return flagged.map((e: any) => ({
+    candidate: e.test_session?.candidate_name || e.test_session_candidate_name || e.test_session_id || 'Candidate',
+    job: e.test_session?.job_title || e.job_title || '',
+    reason: `${e.event_type}${e.event_metadata?.note ? ` — ${e.event_metadata.note}` : ''}`,
+    timestamp: e.detected_at ? new Date(e.detected_at).toLocaleString([], { hour: 'numeric', minute: '2-digit' }) : new Date(e.created_at).toLocaleString(),
+  }));
 };
 
 const getAssessmentStatus = (a: Assessment): DisplayAssessment["status"] => {
@@ -129,6 +136,7 @@ const AdminDashboard: React.FC = () => {
 
   const [assessments, setAssessments] = useState<DisplayAssessment[]>([]);
   const [activityRows, setActivityRows] = useState<AdminDashboardActivityItem[]>([]);
+  const [flaggedAlerts, setFlaggedAlerts] = useState<AlertEntry[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     total_assessments: 0,
     pending: 0,
@@ -159,10 +167,29 @@ const AdminDashboard: React.FC = () => {
         const user = await userService.getCurrentUser();
         setCurrentUserRole(user?.role ?? null);
 
-        const [assessmentList, activity] = await Promise.all([
-          assessmentService.listAssessments(undefined, 0, 50, user?.role === "superadmin"),
-          dashboardService.getAdminActivity(),
-        ]);
+        let assessmentList: Assessment[] = [];
+        let activity: AdminDashboardActivityItem[] = [];
+        let proctoringEvents: any[] = [];
+
+        try {
+          [assessmentList, activity, proctoringEvents] = await Promise.all([
+            assessmentService.listAssessments(undefined, 0, 50, user?.role === "superadmin"),
+            dashboardService.getAdminActivity(),
+            proctoringService.listEvents(),
+          ]);
+        } catch (err) {
+          // Some admin endpoints require admin/superadmin roles. We'll fetch what we can and fall back.
+          console.warn('Could not fetch one or more admin endpoints, attempting partial fetch', err);
+          try {
+            assessmentList = await assessmentService.listAssessments(undefined, 0, 50, user?.role === "superadmin");
+          } catch (e) { assessmentList = []; }
+          try {
+            activity = await dashboardService.getAdminActivity();
+          } catch (e) { activity = []; }
+          try {
+            proctoringEvents = await proctoringService.listEvents();
+          } catch (e) { proctoringEvents = []; }
+        }
 
         const displayData: DisplayAssessment[] = assessmentList.map((a: Assessment) => ({
           id: a.id.toString(),
@@ -181,6 +208,7 @@ const AdminDashboard: React.FC = () => {
         setAssessments(displayData);
         setActivityRows(activity);
 
+        // If admin stats endpoint is not available to the current user, compute stats locally
         const calculatedStats: DashboardStats = {
           total_assessments: displayData.length,
           pending: displayData.filter((a) => a.status === "pending").length,
@@ -190,11 +218,43 @@ const AdminDashboard: React.FC = () => {
           expired: displayData.filter((a) => a.status === "expired").length,
         };
 
-        setStats(calculatedStats);
+        // Try to call adminService.getSystemStats() only if user is superadmin; otherwise fallback to our calculated stats
+        try {
+          if (user?.role === 'superadmin') {
+            const sys = await (await import('../../API/services')).adminService.getSystemStats();
+            // map some compatible fields if present
+            setStats({
+              total_assessments: sys.total_assessments ?? calculatedStats.total_assessments,
+              pending: sys.pending ?? calculatedStats.pending,
+              active: sys.active ?? calculatedStats.active,
+              in_progress: sys.in_progress ?? calculatedStats.in_progress,
+              completed: sys.completed ?? calculatedStats.completed,
+              expired: sys.expired ?? calculatedStats.expired,
+            });
+          } else {
+            setStats(calculatedStats);
+          }
+        } catch (e) {
+          setStats(calculatedStats);
+        }
         setLastSyncedAt(new Date().toISOString());
 
         if (activity.length > 0) {
           setToast({ type: "success", message: `Recent activity synced (${activity.length} records)` });
+        }
+
+        // Map proctoring events to alert entries (only flagged or high severity)
+        try {
+          const flagged = (proctoringEvents || []).filter((e: any) => e.flagged === true || e.severity === 'high' || e.severity === 'critical');
+          const mappedAlerts: AlertEntry[] = flagged.map((e: any) => ({
+            candidate: e.test_session?.candidate_name || e.test_session_candidate_name || e.test_session_id || 'Candidate',
+            job: e.test_session?.job_title || e.job_title || '',
+            reason: `${e.event_type}${e.event_metadata?.note ? ` — ${e.event_metadata.note}` : ''}`,
+            timestamp: e.detected_at ? new Date(e.detected_at).toLocaleString([], { hour: 'numeric', minute: '2-digit' }) : new Date(e.created_at).toLocaleString(),
+          }));
+          setFlaggedAlerts(mappedAlerts.slice(0, 8));
+        } catch (err) {
+          console.warn('Could not map proctoring events', err);
         }
       } catch (err: any) {
         console.error("Error fetching dashboard data:", err);
@@ -274,6 +334,33 @@ const AdminDashboard: React.FC = () => {
     .filter((entry) => entry.scoreLabel !== "N/A")
     .slice(-6);
 
+  const requirementTrends = useMemo(() => {
+    const skillCounts = new Map<string, number>();
+    assessments.forEach((assessment) => {
+      (assessment.skills || []).forEach((skill) => {
+        const label = skill.name || "—";
+        skillCounts.set(label, (skillCounts.get(label) ?? 0) + 1);
+      });
+    });
+
+    return Array.from(skillCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 6);
+  }, [assessments]);
+
+  const upcomingAssessments = useMemo(() => {
+    return assessments
+      .filter((assessment) => ["pending", "active", "in_progress"].includes(assessment.status))
+      .sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aTime - bTime;
+      })
+      .slice(0, 4);
+  }, [assessments]);
+
+
   const handleRetry = () => setRetryCount((prev) => prev + 1);
   return (
     <div className="admin-dashboard">
@@ -311,115 +398,129 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      <section className="kpi-row">
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiUsers size={18} />
-          </div>
-          <p className="kpi-label">Active jobs</p>
-          <p className="kpi-value">{activeJobsCount}</p>
-          <p className="kpi-detail">Live requisitions</p>
-        </article>
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiActivity size={18} />
-          </div>
-          <p className="kpi-label">Interviews in progress</p>
-          <p className="kpi-value">{stats.in_progress}</p>
-          <p className="kpi-detail">{stats.in_progress || 0} ongoing</p>
-        </article>
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiCheckCircle size={18} />
-          </div>
-          <p className="kpi-label">Completed interviews</p>
-          <p className="kpi-value">{stats.completed}</p>
-          <p className="kpi-detail">This cycle</p>
-        </article>
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiUsers size={18} />
-          </div>
-          <p className="kpi-label">Shortlisted candidates</p>
-          <p className="kpi-value">{shortlistedCandidates}</p>
-          <p className="kpi-detail">Based on latest interviews</p>
-        </article>
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiCalendar size={18} />
-          </div>
-          <p className="kpi-label">Interviews remaining</p>
-          <p className="kpi-value">{interviewCredits}</p>
-          <p className="kpi-detail">Credits left</p>
-        </article>
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiTrendingUp size={18} />
-          </div>
-          <p className="kpi-label">Average candidate score</p>
-          <p className="kpi-value">{averageScore}%</p>
-          <div className="sparkline">
-            {sparklineValues.map((entry, index) => (
-              <span key={`${entry.candidate}-${index}`} style={{ height: `${entry.score}%` }}></span>
-            ))}
-          </div>
-        </article>
-        <article className="kpi-card">
-          <div className="kpi-icon">
-            <FiAlertCircle size={18} />
-          </div>
-          <p className="kpi-label">Proctoring alerts</p>
-          <p className="kpi-value">{FLAGGED_ALERTS.length}</p>
-          <p className="kpi-detail">Flagged interviews</p>
-        </article>
-      </section>
-
-      <section className="secondary-section">
-        <div className="chart-card">
+      <section className="summary-grid">
+        <article className="panel assessment-panel">
           <div className="panel-heading">
-            <h2>Interviews by stage</h2>
-            <span>{stats.total_assessments} total</span>
+            <div>
+              <p className="eyebrow">Info related to assessment</p>
+              <h2>Assessment overview</h2>
+            </div>
+            <span>{stats.total_assessments} assessments</span>
           </div>
-          <div className="chart-bars">
+          <div className="stage-bars">
             {stageChartData.map((stage) => (
-              <div className="chart-bar" key={stage.label}>
-                <span className="bar-value" style={{ height: `${(stage.value / maxStageValue) * 100}%` }}></span>
+              <div className="stage-bar" key={stage.label}>
+                <span className="stage-value" style={{ height: `${(stage.value / maxStageValue) * 100}%` }}></span>
                 <p>{stage.label}</p>
                 <small>{stage.value}</small>
               </div>
             ))}
           </div>
-        </div>
-        <div className="alerts-card">
-          <div className="panel-heading">
-            <h2>Alerts</h2>
-            <span>Flagged interviews</span>
-          </div>
-          <ul className="alerts-list">
-            {FLAGGED_ALERTS.map((alert) => (
-              <li key={`${alert.candidate}-${alert.job}`}>
-                <div>
-                  <p className="alert-candidate">{alert.candidate}</p>
-                  <p className="alert-job">{alert.job}</p>
-                </div>
-                <p className="alert-reason">{alert.reason}</p>
-                <span className="alert-time">{alert.timestamp}</span>
-              </li>
+          <div className="status-list">
+            {stageChartData.map((stage) => (
+              <div className="status-row" key={stage.label}>
+                <span>{stage.label}</span>
+                <strong>{stage.value}</strong>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>
+          <div className="upcoming-roles">
+            <p className="upcoming-label">Active teasers</p>
+            {upcomingAssessments.length ? (
+              upcomingAssessments.map((assessment) => {
+                const statusLabel = formatStatusLabel(assessment.status);
+                return (
+                  <div className="upcoming-row" key={assessment.id}>
+                    <div>
+                      <p className="upcoming-job">{assessment.role}</p>
+                      <small>{new Date(assessment.created_at).toLocaleDateString()}</small>
+                    </div>
+                    <span className={`status-pill status-${buildStatusClass(statusLabel)}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="empty-note">No published assessments yet.</p>
+            )}
+          </div>
+        </article>
+        <article className="panel candidate-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Info related to candidates</p>
+              <h2>Candidate snapshot</h2>
+            </div>
+            <div className="sparkline">
+              {sparklineValues.map((entry, index) => (
+                <span key={`${entry.candidate}-${index}`} style={{ height: `${entry.score}%` }}></span>
+              ))}
+            </div>
+          </div>
+          <div className="candidate-cards">
+            <div className="candidate-card">
+              <p className="card-label">Shortlisted</p>
+              <p className="card-value">{shortlistedCandidates}</p>
+              <p className="card-detail">Latest interviews</p>
+            </div>
+            <div className="candidate-card">
+              <p className="card-label">Avg. score</p>
+              <p className="card-value">{averageScore}%</p>
+              <p className="card-detail">Based on {scoredEntries.length} completed</p>
+            </div>
+            <div className="candidate-card">
+              <p className="card-label">Active sessions</p>
+              <p className="card-value">{stats.in_progress}</p>
+              <p className="card-detail">In progress</p>
+            </div>
+            <div className="candidate-card">
+              <p className="card-label">Active jobs</p>
+              <p className="card-value">{activeJobsCount}</p>
+              <p className="card-detail">Live requisitions</p>
+            </div>
+          </div>
+        </article>
+        <article className="panel requirements-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Requirement highlights</p>
+              <h2>Core skills</h2>
+            </div>
+            <span>{requirementTrends.length} key areas</span>
+          </div>
+          <div className="requirement-trends">
+            {requirementTrends.length ? (
+              requirementTrends.map((trend) => (
+                <div className="trend-chip" key={trend.name}>
+                  <strong>{trend.name}</strong>
+                  <small>{trend.count} assessments</small>
+                </div>
+              ))
+            ) : (
+              <p className="empty-note">Requirements not available yet.</p>
+            )}
+          </div>
+          <p className="requirement-note">Tracking {assessments.length} total assessments.</p>
+        </article>
       </section>
 
-      <section className="main-section">
-        <div className="activity-panel">
+      <section className="operations-grid">
+        <article className="panel operations-panel">
           <div className="panel-heading">
-            <h2>Recent activity</h2>
-            <span>{recentActivity.length} rows</span>
+            <div>
+              <p className="eyebrow">OPerations</p>
+              <h2>Activity log</h2>
+            </div>
+            <div className="operations-actions">
+              <button className="btn-link" onClick={handleRetry}>Refresh</button>
+              <button className="btn btn-primary" onClick={() => navigate("/admin/assessment")}>New assessment</button>
+            </div>
           </div>
           {loading ? (
             <div className="loading-state">
               <div className="spinner"></div>
-              <p>Loading interviews...</p>
+              <p>Loading activity…</p>
             </div>
           ) : recentActivity.length > 0 ? (
             <div className="table-wrapper">
@@ -456,25 +557,38 @@ const AdminDashboard: React.FC = () => {
           ) : (
             <p className="empty-note">No interviews recorded yet.</p>
           )}
-        </div>
-        <div className="alerts-panel">
+        </article>
+        <article className="panel highlights-panel">
           <div className="panel-heading">
-            <h2>Flagged interviews</h2>
+            <div>
+              <p className="eyebrow">Other important highlighted information</p>
+              <h2>Alerts & focus</h2>
+            </div>
+            <span>Synced {new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
           </div>
-          <ul className="alerts-panel-list">
-            {FLAGGED_ALERTS.map((alert) => (
-              <li key={`${alert.candidate}-${alert.reason}`}>
-                <div>
-                  <p className="alert-candidate">{alert.candidate}</p>
-                  <p className="alert-job">{alert.job}</p>
-                </div>
-                <span className="alert-time">{alert.timestamp}</span>
-                <p className="alert-reason small">{alert.reason}</p>
-              </li>
-            ))}
-          </ul>
-          <button className="btn-link">View all alerts</button>
-        </div>
+          <div className="highlights-list">
+            <p className="highlight-title">Flagged interviews</p>
+            <ul>
+              {flaggedAlerts.length > 0 ? (
+                flaggedAlerts.map((alert) => (
+                  <li key={`${alert.candidate}-${alert.reason}-${alert.timestamp}`}>
+                    <div>
+                      <p className="alert-candidate">{alert.candidate}</p>
+                      <p className="alert-job">{alert.job}</p>
+                    </div>
+                    <span className="alert-time">{alert.timestamp}</span>
+                    <p className="alert-reason small">{alert.reason}</p>
+                  </li>
+                ))
+              ) : (
+                <li className="empty-roster">No flagged interviews</li>
+              )}
+            </ul>
+          </div>
+          {/* Transform CV widget for admin use */}
+          <TransformCVWidget />
+          <p className="highlight-note"><strong>Last update:</strong> {new Date(lastSyncedAt).toLocaleString([], { hour: "numeric", minute: "2-digit" })}</p>
+        </article>
       </section>
 
       <div className="footer-strip">

@@ -1,6 +1,6 @@
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { interviewerService } from "../../API/services";
+import { superadminService } from "../../API/services";
 import "./SuperAdminInterviews.scss";
 
 // Interviews are loaded from the API via interviewerService
@@ -50,6 +50,23 @@ const SuperAdminInterviews = () => {
 
   const formatDate = (value: string | null) => {
     if (!value) return "—";
+  // If there are no interviews, show an empty state instead of crashing
+  if (!selectedInterview && filteredInterviews.length === 0) {
+    return (
+      <div className="superadmin-interviews">
+        <div className="interviews-header">
+          <div>
+            <p className="eyebrow">Interviews</p>
+            <h1>Global interview monitor</h1>
+          </div>
+        </div>
+        <div className="empty-state">
+          <h3>No interviews found</h3>
+          <p className="muted">There are no interviews available for your account or the current filters — try widening the filters or seed sample interviews.</p>
+        </div>
+      </div>
+    );
+  }
     return new Date(value).toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",
@@ -64,8 +81,8 @@ const SuperAdminInterviews = () => {
     const load = async () => {
       setLoading(true);
       try {
-        // Try to fetch interviews via interviewer API (falls back to empty list)
-        const res = await interviewerService.listMyInterviews();
+        // Fetch system-wide interviews via superadmin API
+        const res = await superadminService.listInterviews(200);
         if (!mounted) return;
         // Map to a common shape used by the UI where possible
         const mapped = (res || []).map((r: any) => ({
@@ -227,76 +244,95 @@ const SuperAdminInterviews = () => {
         </div>
 
         <div className="detail-panel">
-          <div className="detail-card">
-            <div className="detail-header">
-              <div>
-                <p className="eyebrow">Interview summary</p>
-                <h3>{selectedInterview.candidate}</h3>
-              </div>
-              <span className={`status-chip ${selectedInterview.status.toLowerCase().replace(/\s+/g, "-")}`}>
-                {selectedInterview.status}
-              </span>
+          {!selectedInterview ? (
+            <div className="detail-card empty-detail">
+              <h3>No interview selected</h3>
+              <p className="muted">Select an interview from the left to view details.</p>
             </div>
-            <p className="muted">{selectedInterview.summary}</p>
-            <div className="detail-meta">
-              <div>
-                <p className="label">Company</p>
-                <strong>{selectedInterview.company}</strong>
-              </div>
-              <div>
-                <p className="label">Interview type</p>
-                <strong>{selectedInterview.type}</strong>
-              </div>
-              <div>
-                <p className="label">Date</p>
-                <strong>{formatDate(selectedInterview.interviewDate)}</strong>
-              </div>
-              <div>
-                <p className="label">Score</p>
-                <strong>{selectedInterview.score ?? "—"}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="detail-card">
-            <h4>Scores by skill</h4>
-            <div className="skill-grid">
-              {selectedInterview.skillScores.map((skill) => (
-                <div key={skill.skill} className="skill-row">
+          ) : (
+            <>
+              <div className="detail-card">
+                <div className="detail-header">
                   <div>
-                    <strong>{skill.skill}</strong>
-                    <div className="muted">Detailed rating</div>
+                    <p className="eyebrow">Interview summary</p>
+                    <h3>{selectedInterview.candidate}</h3>
                   </div>
-                  <span>{skill.value ?? "—"}</span>
+                  <span className={`status-chip ${selectedInterview.status.toLowerCase().replace(/\s+/g, "-")}`}>
+                    {selectedInterview.status}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="detail-card">
-            <h4>AI evaluation notes</h4>
-            <ul className="note-list">
-              {selectedInterview.aiNotes.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="detail-card">
-            <h4>Proctoring timeline</h4>
-            <div className="timeline">
-              {selectedInterview.proctorTimeline.map((entry) => (
-                <div key={entry} className="timeline-row">
-                  <span>{entry}</span>
+                <p className="muted">{selectedInterview.summary}</p>
+                <div className="detail-meta">
+                  <div>
+                    <p className="label">Company</p>
+                    <strong>{selectedInterview.company}</strong>
+                  </div>
+                  <div>
+                    <p className="label">Interview type</p>
+                    <strong>{selectedInterview.type}</strong>
+                  </div>
+                  <div>
+                    <p className="label">Date</p>
+                    <strong>{formatDate(selectedInterview.interviewDate)}</strong>
+                  </div>
+                  <div>
+                    <p className="label">Score</p>
+                    <strong>{selectedInterview.score ?? "—"}</strong>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          <div className="detail-card final-decision">
-            <h4>Final decision</h4>
-            <div className="decision-pill">{selectedInterview.finalDecision}</div>
-          </div>
+              <div className="detail-card">
+                <h4>Scores by skill</h4>
+                <div className="skill-grid">
+                  {Array.isArray(selectedInterview.skillScores) && selectedInterview.skillScores.length > 0 ? (
+                    selectedInterview.skillScores.map((skill: { skill: string; value?: number | null }) => (
+                      <div key={skill.skill} className="skill-row">
+                        <div>
+                          <strong>{skill.skill}</strong>
+                          <div className="muted">Detailed rating</div>
+                        </div>
+                        <span>{skill.value ?? "—"}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">No skill scores available</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="detail-card">
+                <h4>AI evaluation notes</h4>
+                <ul className="note-list">
+                  {Array.isArray(selectedInterview.aiNotes) && selectedInterview.aiNotes.length > 0 ? (
+                    selectedInterview.aiNotes.map((note: string) => <li key={note}>{note}</li>)
+                  ) : (
+                    <li className="muted">No notes available</li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="detail-card">
+                <h4>Proctoring timeline</h4>
+                <div className="timeline">
+                  {Array.isArray(selectedInterview.proctorTimeline) && selectedInterview.proctorTimeline.length > 0 ? (
+                    selectedInterview.proctorTimeline.map((entry: string) => (
+                      <div key={entry} className="timeline-row">
+                        <span>{entry}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">No timeline events</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="detail-card final-decision">
+                <h4>Final decision</h4>
+                <div className="decision-pill">{selectedInterview.finalDecision}</div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

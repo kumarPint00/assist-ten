@@ -56,9 +56,10 @@ async def list_assessments(
     else:
         query = query.where(Assessment.is_published == True)
     
-    # If current user is admin (non-superadmin), only show their created assessments
+    # If current user is admin (non-superadmin), show assessments created by them OR global (created_by is NULL)
     if current_user and getattr(current_user, 'role', '') == 'admin':
-        query = query.where(Assessment.created_by == current_user.id)
+        from sqlalchemy import or_
+        query = query.where(or_(Assessment.created_by == current_user.id, Assessment.created_by == None))
     query = query.order_by(desc(Assessment.created_at))
     query = query.offset(skip).limit(limit)
     
